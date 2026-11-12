@@ -1,0 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+.pose-results-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.results-card {
+  background: rgba(9, 16, 32, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.card-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.header-badge-tag {
+  font-family: 'Orbitron', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #38bdf8;
+}
+
+.header-range-pill {
+  font-family: 'JetBrains Mono', 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.header-subtag {
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* 1. CIRCULAR GAUGES FLEX ROW */
+.gauges-flex-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.circular-gauge-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.gauge-svg-wrap {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(0deg);
+}
+
+.gauge-val-inner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.gauge-val-text {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f8fafc;
+  line-height: 1.1;
+}
+
+.gauge-unit-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #94a3b8;
+}
+
+.gauge-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+/* 2. ATTITUDE STACKED CARDS */
+.attitude-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attitude-item-card {
+  background: rgba(6, 11, 23, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.attitude-item-card.roll-card { border-left: 3px solid #ef4444; }
+.attitude-item-card.pitch-card { border-left: 3px solid #22c55e; }
+.attitude-item-card.yaw-card { border-left: 3px solid #38bdf8; }
+
+.item-left-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.axis-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+}
+
+.axis-degrees-val {
+  font-family: 'Orbitron', monospace;
+  font-size: 17px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.item-right-sparkline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.sparkline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mini-sparkline-svg {
+  width: 58px;
+  height: 20px;
+}
+
+.pose-locked-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #10b981;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.pose-locked-tag .lock-icon {
+  font-size: 10px;
+}
+
+.axis-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+}
+
+.progress-fill.roll-fill { background: linear-gradient(90deg, #b91c1c, #ef4444); }
+.progress-fill.pitch-fill { background: linear-gradient(90deg, #15803d, #22c55e); }
+.progress-fill.yaw-fill { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+
+/* 3. SOLVER ACCURACY & RMSE CARD (BOTTOM) */
+.solver-rmse-card {
+  margin-top: auto;
+  background: rgba(6, 11, 23, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.rmse-inner-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rmse-left-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.rmse-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: #94a3b8;
+}
+
+.rmse-numeric-val {
+  font-family: 'JetBrains Mono', 'Orbitron', monospace;
+  font-size: 15px;
+  font-weight: 800;
+  color: #38bdf8;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+}
+
+.precision-pill-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #10b981;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+  white-space: nowrap;
+}

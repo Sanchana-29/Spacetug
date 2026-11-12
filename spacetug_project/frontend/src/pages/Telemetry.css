@@ -1,0 +1,106 @@
+
+.telemetry-page {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto minmax(220px, 1fr) minmax(220px, 1fr) auto;
+  gap: 18px;
+  padding: 20px 20px 50px 20px;
+  overflow-y: auto;
+  align-content: start;
+}
+
+.telemetry-controls,
+.live-metrics,
+.telemetry-logs {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.telemetry-controls {
+  transition: margin-left 0.25s ease;
+}
+
+.layout.sidebar-collapsed .telemetry-controls {
+  margin-left: 56px;
+}
+
+/* Keep chart cards aligned */
+.telemetry-page .chart-card {
+  box-sizing: border-box;
+  height: 100% !important;
+  min-height: 220px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.telemetry-page .chart-placeholder {
+  flex: 1;
+  min-height: 150px;
+  height: auto !important;
+  background-image:
+    linear-gradient(rgba(49, 65, 93, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(49, 65, 93, 0.4) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: center;
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.telemetry-page .chart-placeholder h2 {
+  display: none !important;
+}
+
+/* Tablet */
+@media (max-width: 1100px) {
+  .telemetry-page {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .telemetry-page .chart-card {
+    min-height: 220px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .telemetry-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .telemetry-page .chart-card {
+    min-height: 240px;
+  }
+
+  .layout.sidebar-collapsed .telemetry-controls {
+    margin-left: 0;
+  }
+}
+
+.recording-status {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.status.active {
+  color: #34d399;
+}
+
+.status.inactive {
+  color: #94a3b8;
+}
+
+.recording-status.active {
+  color: #f87171;
+}

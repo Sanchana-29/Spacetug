@@ -1,0 +1,646 @@
+/* Welcome Page & Modals CSS */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+.welcome-page-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #030712;
+  background-image: 
+    radial-gradient(circle at 80% 50%, rgba(6, 182, 212, 0.08) 0%, transparent 60%),
+    radial-gradient(circle at 20% 40%, rgba(30, 58, 138, 0.15) 0%, transparent 70%),
+    radial-gradient(circle at 50% 80%, rgba(15, 23, 42, 0.6) 0%, transparent 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #f8fafc;
+  user-select: none;
+}
+
+/* Fallback / subtle background starry dust */
+.welcome-star-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: 
+    radial-gradient(1px 1px at 15% 25%, #ffffff 100%, transparent),
+    radial-gradient(1.5px 1.5px at 30% 65%, rgba(255, 255, 255, 0.8) 100%, transparent),
+    radial-gradient(1px 1px at 45% 15%, #ffffff 100%, transparent),
+    radial-gradient(2px 2px at 60% 80%, rgba(255, 255, 255, 0.9) 100%, transparent),
+    radial-gradient(1px 1px at 75% 35%, #ffffff 100%, transparent),
+    radial-gradient(1.5px 1.5px at 85% 70%, rgba(255, 255, 255, 0.7) 100%, transparent),
+    radial-gradient(1px 1px at 92% 20%, #ffffff 100%, transparent),
+    radial-gradient(1px 1px at 25% 85%, #ffffff 100%, transparent),
+    radial-gradient(1.5px 1.5px at 10% 50%, rgba(255, 255, 255, 0.6) 100%, transparent);
+  background-size: 550px 550px;
+  opacity: 0.75;
+  z-index: 0;
+}
+
+/* Clean Hero HUD Overlay over 3D Earth (No center card/box overlay) */
+.welcome-hero-overlay {
+  position: relative;
+  z-index: 10;
+  width: 90%;
+  max-width: 840px;
+  padding: 24px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: welcomeFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Retain backwards-compatibility if referenced */
+.welcome-glass-card {
+  position: relative;
+  z-index: 10;
+  width: 90%;
+  max-width: 840px;
+  padding: 24px 20px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+@keyframes welcomeFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Badge at Top */
+.welcome-badge-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.22) 0%, rgba(8, 22, 46, 0.85) 80%);
+  border: 1.5px solid #00d4ff;
+  box-shadow: 
+    0 0 20px rgba(0, 212, 255, 0.65),
+    inset 0 0 10px rgba(0, 212, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+  color: #38bdf8;
+  font-size: 26px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.welcome-badge-circle:hover {
+  transform: rotate(15deg) scale(1.05);
+  box-shadow: 0 0 28px rgba(0, 212, 255, 0.85);
+}
+
+/* Main Heading */
+.welcome-title {
+  font-family: 'Orbitron', -apple-system, sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  line-height: 1.35;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin: 0 0 16px 0;
+  text-shadow: 
+    0 2px 10px rgba(0, 0, 0, 0.95),
+    0 0 24px rgba(0, 212, 255, 0.75),
+    0 0 40px rgba(0, 170, 255, 0.4);
+}
+
+/* Description Text */
+.welcome-description {
+  font-size: 15px;
+  line-height: 1.65;
+  color: #cbd5e1;
+  max-width: 580px;
+  margin: 0 0 36px 0;
+  font-weight: 400;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+/* Button Row */
+.welcome-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+/* START NEW MISSION Button */
+.btn-start-mission {
+  background: #00b4d8;
+  background: linear-gradient(135deg, #00b4d8 0%, #0096c7 100%);
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  padding: 13px 26px;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 
+    0 0 22px rgba(0, 180, 230, 0.65),
+    0 4px 14px rgba(0, 0, 0, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+
+.btn-start-mission:hover {
+  background: linear-gradient(135deg, #00c6ed 0%, #00a4db 100%);
+  box-shadow: 
+    0 0 30px rgba(0, 210, 255, 0.85),
+    0 6px 18px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1.5px) scale(1.02);
+}
+
+.btn-start-mission:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* RESUME MISSION Button */
+.btn-resume-mission {
+  background: rgba(14, 24, 46, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  color: #f1f5f9;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  padding: 13px 26px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.btn-resume-mission:hover {
+  background: rgba(22, 38, 70, 0.95);
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 
+    0 0 20px rgba(56, 189, 248, 0.3),
+    0 6px 18px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1.5px) scale(1.02);
+}
+
+.btn-resume-mission:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* ===================================================
+   MODAL OVERLAY & GLASSMORPHISM WINDOW
+   =================================================== */
+
+.mission-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 9, 20, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: overlayFadeIn 0.25s ease-out forwards;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mission-modal-card {
+  width: 580px;
+  max-width: 95vw;
+  background: rgba(9, 16, 32, 0.94);
+  border: 1px solid rgba(0, 195, 255, 0.42);
+  border-radius: 18px;
+  box-shadow: 
+    0 0 35px rgba(0, 195, 255, 0.25),
+    0 25px 65px rgba(0, 0, 0, 0.85);
+  padding: 32px 34px;
+  color: #f8fafc;
+  position: relative;
+  animation: modalPopIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.mission-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.mission-modal-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #38bdf8;
+  text-transform: uppercase;
+  margin: 0;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.mission-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.mission-modal-close-btn:hover {
+  color: #38bdf8;
+  transform: rotate(90deg);
+}
+
+/* Form Groups */
+.single-input-modal {
+  width: 520px !important;
+  max-width: 92vw;
+}
+
+.mission-input-hint {
+  display: block;
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.mission-error-banner {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+}
+
+.mission-form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.mission-form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #7dd3fc;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.mission-form-input,
+.mission-form-select {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(13, 21, 38, 0.95);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 6px;
+  padding: 11px 14px;
+  font-size: 14px;
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mission-form-input::placeholder {
+  color: #475569;
+}
+
+.mission-form-input:focus,
+.mission-form-select:focus {
+  border-color: #00b4d8;
+  box-shadow: 0 0 12px rgba(0, 180, 216, 0.35);
+}
+
+.mission-form-select option {
+  background: #0d1526;
+  color: #f1f5f9;
+  padding: 8px;
+}
+
+/* Separation Distance Slider */
+.mission-slider-container {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.mission-range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Webkit Track & Thumb */
+.mission-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #00d4ff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.85);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mission-range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 16px rgba(0, 212, 255, 1);
+}
+
+/* Firefox Thumb */
+.mission-range-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #00d4ff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.85);
+  cursor: pointer;
+}
+
+/* Modal Action Buttons Footer */
+.mission-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-top: 26px;
+  padding-top: 10px;
+}
+
+.btn-modal-cancel {
+  background: rgba(15, 25, 48, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #e2e8f0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 10px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-modal-cancel:hover {
+  background: rgba(24, 38, 70, 0.95);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #ffffff;
+}
+
+.btn-modal-launch {
+  background: #00b4d8;
+  background: linear-gradient(135deg, #00b4d8 0%, #0096c7 100%);
+  border: none;
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 26px;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(0, 180, 216, 0.65);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-modal-launch:hover {
+  background: linear-gradient(135deg, #00c6ed 0%, #00a4db 100%);
+  box-shadow: 0 0 26px rgba(0, 210, 255, 0.85);
+  transform: translateY(-1px);
+}
+
+.btn-modal-launch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ===================================================
+   RESUME MISSION MODAL LIST & CARDS
+   =================================================== */
+
+.saved-missions-list {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Custom Scrollbar for missions list */
+.saved-missions-list::-webkit-scrollbar {
+  width: 6px;
+}
+.saved-missions-list::-webkit-scrollbar-track {
+  background: rgba(13, 21, 38, 0.5);
+  border-radius: 3px;
+}
+.saved-missions-list::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.35);
+  border-radius: 3px;
+}
+.saved-missions-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.6);
+}
+
+.saved-mission-item {
+  background: rgba(13, 22, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.saved-mission-item:hover {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(18, 30, 56, 0.92);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.18);
+}
+
+.saved-mission-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+
+.saved-mission-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.saved-mission-id {
+  font-family: monospace;
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.saved-mission-status-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.status-running {
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.4);
+}
+
+.status-completed {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.status-paused {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.saved-mission-details {
+  font-size: 11.5px;
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.btn-item-resume {
+  background: #00b4d8;
+  background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
+  color: #ffffff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 9px 18px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 14px rgba(0, 180, 216, 0.5);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-item-resume:hover {
+  background: linear-gradient(135deg, #00c6ed 0%, #008cc7 100%);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.75);
+  transform: translateY(-1px);
+}
+
+/* Empty State */
+.empty-missions-container {
+  padding: 32px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-missions-icon {
+  font-size: 38px;
+  color: #38bdf8;
+  opacity: 0.6;
+}
+
+.empty-missions-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.empty-missions-desc {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 380px;
+}
+

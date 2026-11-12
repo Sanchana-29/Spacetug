@@ -1,0 +1,276 @@
+/* Rocket Launch Transition 3D Screen CSS */
+
+.rocket-launch-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background-color: #020617;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  animation: launchOverlayFadeIn 0.5s ease-out forwards;
+}
+
+@keyframes launchOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.rocket-canvas-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Atmospheric horizon vignette */
+.rocket-atmosphere-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(circle at 50% 100%, rgba(14, 165, 233, 0.18) 0%, transparent 60%),
+              radial-gradient(circle at 50% 50%, transparent 50%, rgba(2, 6, 23, 0.75) 100%);
+}
+
+/* HUD Overlay */
+.rocket-hud-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 32px 48px;
+  box-sizing: border-box;
+}
+
+/* Top bar */
+.rocket-hud-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.rocket-hud-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 9999px;
+  color: #38bdf8;
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+}
+
+.pulse-rocket-icon {
+  color: #f97316;
+  font-size: 14px;
+  animation: rocketPulse 1s infinite alternate;
+}
+
+@keyframes rocketPulse {
+  from {
+    transform: scale(0.95);
+    filter: drop-shadow(0 0 2px #f97316);
+  }
+  to {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 8px #ea580c);
+  }
+}
+
+.btn-skip-launch {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-skip-launch:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+}
+
+/* Center Banner */
+.rocket-hud-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: -30px;
+}
+
+.rocket-mission-tag {
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.rocket-mission-name {
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 14px 0;
+  text-shadow: 0 0 25px rgba(56, 189, 248, 0.6), 0 2px 8px rgba(0, 0, 0, 0.9);
+}
+
+.rocket-phase-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 18px;
+  background: rgba(8, 47, 73, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 20px;
+  backdrop-filter: blur(8px);
+}
+
+.phase-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px #22c55e;
+  animation: phaseBlink 0.8s infinite alternate;
+}
+
+@keyframes phaseBlink {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+.phase-text {
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #7dd3fc;
+}
+
+/* Bottom telemetry readouts */
+.rocket-hud-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.telemetry-readouts-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.telemetry-box {
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.telemetry-label {
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.1em;
+}
+
+.telemetry-val {
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.telemetry-val small {
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.telemetry-sub {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Progress bar */
+.launch-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.launch-progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7dd3fc;
+  letter-spacing: 0.08em;
+}
+
+.launch-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.launch-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 50%, #4ade80 100%);
+  border-radius: 9999px;
+  transition: width 0.06s linear;
+  box-shadow: 0 0 12px #38bdf8;
+}
+

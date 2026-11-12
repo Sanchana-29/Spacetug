@@ -1,0 +1,372 @@
+/* Dashboard 3D Simulation Workspace & Glassmorphism HUD Overlays */
+
+.dashboard-sim-workspace {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: #030712;
+}
+
+/* ========================================================
+   1. ACTIVE MISSION FLIGHT HUD PANEL (Top-Left)
+   ======================================================== */
+
+.dashboard-flight-hud {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 20;
+  max-width: 520px;
+  min-width: 380px;
+  background: rgba(9, 16, 32, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 14px;
+  padding: 16px 20px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    inset 0 0 15px rgba(0, 212, 255, 0.05);
+  color: #f8fafc;
+  transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.layout.sidebar-collapsed .dashboard-flight-hud {
+  left: 76px;
+}
+
+.hud-badge-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.hud-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: radial-gradient(circle, rgba(0, 212, 255, 0.22) 0%, rgba(13, 22, 42, 0.85) 80%);
+  border: 1.5px solid #00d4ff;
+  box-shadow: 0 0 14px rgba(0, 212, 255, 0.5);
+  color: #38bdf8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.hud-header-text {
+  flex: 1;
+  overflow: hidden;
+}
+
+.hud-sub-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #7dd3fc;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hud-mission-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #ffffff;
+  margin: 2px 0 6px 0;
+  text-shadow: 0 0 12px rgba(0, 212, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hud-mission-id {
+  font-family: 'Orbitron', monospace;
+  font-size: 10.5px;
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid rgba(0, 212, 255, 0.28);
+  padding: 1px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.6px;
+}
+
+.hud-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 12px;
+  letter-spacing: 0.6px;
+}
+
+.chip-running {
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.35);
+}
+
+.chip-paused {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* Specs Grid */
+.hud-specs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(56, 189, 248, 0.16);
+}
+
+.hud-spec-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  overflow: hidden;
+}
+
+.hud-spec-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+}
+
+.hud-spec-value {
+  color: #cbd5e1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-value-highlight {
+  color: #00d4ff;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+}
+
+/* ========================================================
+   2. BACKEND / DATABASE STATUS (Top-Right)
+   ======================================================== */
+
+.dashboard-backend-hud {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  z-index: 20;
+  background: rgba(9, 16, 32, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+.hud-backend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hud-backend-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #7dd3fc;
+  letter-spacing: 0.8px;
+}
+
+.hud-backend-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11.5px;
+  letter-spacing: 0.8px;
+}
+
+/* ========================================================
+   3. TARGET DYNAMICS & BORESIGHT TRACKING (Left Panel)
+   ======================================================== */
+
+.dashboard-tracking-hud {
+  position: absolute;
+  top: 178px;
+  left: 20px;
+  z-index: 20;
+  width: 250px;
+  background: rgba(9, 16, 32, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 
+    0 8px 30px rgba(0, 0, 0, 0.6),
+    inset 0 0 12px rgba(0, 212, 255, 0.04);
+  color: #f8fafc;
+  transition: left 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.layout.sidebar-collapsed .dashboard-tracking-hud {
+  left: 76px;
+}
+
+.tracking-hud-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+
+.tracking-hud-icon {
+  font-size: 15px;
+  color: #00d4ff;
+}
+
+.tracking-hud-divider {
+  height: 1px;
+  background: rgba(56, 189, 248, 0.2);
+  margin: 0 -18px 12px -18px;
+}
+
+.tracking-hud-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.tracking-hud-label {
+  color: #94a3b8;
+}
+
+.tracking-hud-val {
+  color: #f1f5f9;
+  font-weight: 600;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tracking-hud-status {
+  font-size: 11px;
+  font-family: 'Orbitron', sans-serif;
+  letter-spacing: 0.6px;
+}
+
+.status-locked {
+  color: #4ade80;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+}
+
+.status-free {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.tracking-hud-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-tracking-ctrl {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-start-tracking {
+  background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
+  color: white;
+  box-shadow: 0 0 14px rgba(0, 180, 216, 0.45);
+}
+.btn-start-tracking:hover {
+  background: linear-gradient(135deg, #00c6ed 0%, #008cc7 100%);
+  box-shadow: 0 0 20px rgba(0, 210, 255, 0.65);
+}
+
+.btn-stop-tracking {
+  background: rgba(220, 38, 38, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+.btn-stop-tracking:hover {
+  background: rgba(220, 38, 38, 0.45);
+  color: white;
+}
+
+.btn-tracking-pause {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(13, 22, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #cbd5e1;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.btn-tracking-pause:hover {
+  background: rgba(22, 38, 70, 0.95);
+  border-color: #00d4ff;
+  color: #00d4ff;
+}

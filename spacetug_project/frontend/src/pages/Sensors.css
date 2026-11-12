@@ -1,0 +1,59 @@
+.sensors-page {
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: row;
+
+  gap: 16px;
+  padding: 16px;
+
+  overflow: hidden;
+}
+
+/* Left-hand column holding backend indicator & stacked sensor cards */
+.sensors-left-col {
+  width: 320px;
+  min-width: 290px;
+  max-width: 360px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* Right-hand column holding full viewport canvas and telemetry HUD */
+.sensors-right-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sensor-viewer {
+  flex: 1;
+  height: 100%;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .sensors-page {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sensors-left-col {
+    width: 100%;
+    max-width: none;
+    height: auto;
+  }
+
+  .sensors-right-col {
+    min-height: 500px;
+  }
+}

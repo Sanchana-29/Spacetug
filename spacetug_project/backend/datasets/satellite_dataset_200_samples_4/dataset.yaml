@@ -1,0 +1,6 @@
+path: C:/Users/91822/OneDrive/Desktop/Spacetug/spacetug_project/backend/datasets/satellite_dataset_200_samples_4
+train: images/train
+val: images/val
+
+names:
+  0: satellite
