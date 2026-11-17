@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import "./DetectionControls.css";
-import { FaPlay, FaSpinner, FaCamera } from "react-icons/fa";
+import { FaPlay, FaSpinner, FaCamera, FaSlidersH } from "react-icons/fa";
 import { useSensor } from "../../../context/SensorContext";
 
 function DetectionControls() {
@@ -21,7 +21,11 @@ function DetectionControls() {
       {/* LEFT/CENTER: CONFIDENCE THRESHOLD & DETECTOR PIPELINE LABEL */}
       <div className="controls-left-group">
         <div className="control-group threshold-group">
-          <label>Confidence Threshold: <strong>{percentage}%</strong></label>
+          <label>
+            <FaSlidersH className="threshold-icon" />
+            <span>CONFIDENCE THRESHOLD:</span>
+            <strong>{percentage}%</strong>
+          </label>
           <input
             type="range"
             min="1"
@@ -32,16 +36,16 @@ function DetectionControls() {
         </div>
 
         <div className="control-group pipeline-label-group">
-          <label>Detector Pipeline</label>
+          <label>DETECTOR PIPELINE</label>
           <div className="pipeline-name-pill">
             YOLOv8n Satellite Detector
           </div>
         </div>
       </div>
 
-      {/* RIGHT: 📷 NEW CAPTURE & ▶ RUN DETECTION */}
+      {/* RIGHT: NEW CAPTURE & RUN DETECTION */}
       <div className="controls-right-actions">
-        {/* 📷 NEW CAPTURE BUTTON -> Navigates to /sensors */}
+        {/* NEW CAPTURE BUTTON -> Navigates to /sensors */}
         <button
           type="button"
           className="new-capture-btn"
@@ -49,10 +53,10 @@ function DetectionControls() {
           title="Go to Sensors page to capture new frame snapshots"
         >
           <FaCamera className="btn-icon" />
-          <span>📷 NEW CAPTURE</span>
+          <span>NEW CAPTURE</span>
         </button>
 
-        {/* ▶ RUN DETECTION BUTTON */}
+        {/* RUN DETECTION BUTTON */}
         <button
           type="button"
           className={`run-detection-btn ${isDetecting ? "running" : ""}`}
@@ -68,7 +72,7 @@ function DetectionControls() {
           ) : (
             <>
               <FaPlay className="btn-icon" />
-              <span>▶ RUN DETECTION</span>
+              <span>RUN DETECTION</span>
             </>
           )}
         </button>

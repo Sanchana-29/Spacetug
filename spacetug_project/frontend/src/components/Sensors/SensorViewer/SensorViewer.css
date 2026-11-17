@@ -412,7 +412,7 @@
 ========================= */
 
 .thermal-3d-view {
-  background: #060b14;
+  background: #040817;
 }
 
 .thermal-label {
@@ -421,15 +421,19 @@
   top: 14px;
   left: 14px;
 
-  padding: 5px 8px;
+  padding: 5px 10px;
 
-  border: 1px solid #5a4035;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 4px;
 
-  background: rgba(12, 9, 13, 0.8);
+  background: rgba(4, 8, 23, 0.88);
 
   font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 
-  color: #d3a48c;
+  color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
 }
 
 .temperature-readout {
@@ -441,11 +445,13 @@
   display: flex;
   flex-direction: column;
 
-  padding: 8px 12px;
+  padding: 8px 14px;
 
-  border: 1px solid #4a3730;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: 6px;
 
-  background: rgba(12, 9, 13, 0.9);
+  background: rgba(4, 8, 23, 0.92);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 

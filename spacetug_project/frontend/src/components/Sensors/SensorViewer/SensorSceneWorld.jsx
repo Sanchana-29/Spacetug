@@ -18,23 +18,27 @@ import { MeshSurfaceSampler } from "three/examples/jsm/math/MeshSurfaceSampler.j
 
 /*
  * =========================================================
- * REALISTIC RADIOMETRIC THERMAL IR PHYSICS SHADER
+ * SATELLITE EARTH-OBSERVATION / EOIR THERMAL IR SHADER
  * =========================================================
- * Dynamic radiometric thermal shader driven by surface heat distribution:
- * - High Heat (Yellow/White glow): Active solar panel cells exposed to sunlight,
- *   internal thruster nozzles, and electronics manifolds.
- * - Medium Heat (Orange/Red): Satellite main metallic chassis bus conducting internal thermal energy.
- * - Cold Zones (Blue/Purple): Shaded structural struts, cold optical dishes,
- *   and space environment background baseline.
+ * Professional satellite thermal payload palette (EOS-08 / HotSat / Landsat TIRS style):
+ * - Deep Space Background: Deep Navy / Dark Midnight Blue (#040817)
+ * - Cold Spacecraft Elements (0.00 - 0.22): Deep Navy Blue -> Dark Slate Blue
+ * - Moderate Radiance Elements (0.22 - 0.48): Muted Blue-Cyan -> Soft Pale Ochre / Cyan-Green
+ * - Warm Radiative Surfaces (0.48 - 0.75): Rich Amber -> Vivid Radiant Orange
+ * - Hot Spots / Thrusters / Solar Cells (0.75 - 1.00): High-intensity Bright Orange -> Vibrant Solar Yellow -> White-Hot Core
  */
 
 const ThermalVertexShader = `
   varying vec3 vNormal;
   varying vec3 vViewPosition;
   varying vec3 vWorldPosition;
+  varying vec3 vLocalPosition;
+  varying vec2 vUv;
 
   void main() {
     vNormal = normalize(normalMatrix * normal);
+    vLocalPosition = position;
+    vUv = uv;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     vViewPosition = -mvPosition.xyz;
     vWorldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
@@ -46,66 +50,76 @@ const ThermalFragmentShader = `
   varying vec3 vNormal;
   varying vec3 vViewPosition;
   varying vec3 vWorldPosition;
+  varying vec3 vLocalPosition;
+  varying vec2 vUv;
 
   uniform float uBaseTemp;     // Intrinsic component heat [0.0 - 1.0]
   uniform float uEmissivity;   // Surface radiative emissivity
   uniform vec3 uSunDirection;  // Direction to Sun in world coordinates
   uniform float uTime;         // Frame time for micro-sensor noise
+  uniform int uIsSolarPanel;   // Flag for procedural solar cell grid gradients
 
-  // Radiometric thermal colormap mapping:
-  // High Heat (0.80 - 1.0): Yellow to White glow
-  // Medium Heat (0.45 - 0.79): Orange to Red/Magenta
-  // Cold Zones (0.05 - 0.44): Blue to Deep Purple
-  // Deep space: Pitch black
-  vec3 radiometricThermal(float t) {
+  // Professional Satellite EOIR Thermal Color Mapping:
+  // Smooth false-color gradient with high visual dynamic range
+  vec3 satelliteEOIRThermal(float t) {
     t = clamp(t, 0.0, 1.0);
-    vec3 c = vec3(0.0);
 
-    if (t < 0.25) {
-      // Deep Purple to Blue
-      float s = t / 0.25;
-      c = mix(vec3(0.08, 0.0, 0.22), vec3(0.0, 0.18, 0.85), s);
-    } else if (t < 0.50) {
-      // Blue to Magenta / Deep Red
-      float s = (t - 0.25) / 0.25;
-      c = mix(vec3(0.0, 0.18, 0.85), vec3(0.82, 0.02, 0.45), s);
-    } else if (t < 0.75) {
-      // Magenta/Red to Warm Orange
-      float s = (t - 0.50) / 0.25;
-      c = mix(vec3(0.82, 0.02, 0.45), vec3(1.0, 0.42, 0.0), s);
-    } else if (t < 0.90) {
-      // Warm Orange to Bright Yellow
-      float s = (t - 0.75) / 0.15;
-      c = mix(vec3(1.0, 0.42, 0.0), vec3(1.0, 0.92, 0.15), s);
+    if (t < 0.22) {
+      float s = t / 0.22;
+      return mix(vec3(0.03, 0.06, 0.18), vec3(0.08, 0.22, 0.48), smoothstep(0.0, 1.0, s));
+    } else if (t < 0.48) {
+      float s = (t - 0.22) / 0.26;
+      return mix(vec3(0.08, 0.22, 0.48), vec3(0.12, 0.62, 0.65), smoothstep(0.0, 1.0, s));
+    } else if (t < 0.72) {
+      float s = (t - 0.48) / 0.24;
+      return mix(vec3(0.12, 0.62, 0.65), vec3(0.94, 0.68, 0.15), smoothstep(0.0, 1.0, s));
+    } else if (t < 0.88) {
+      float s = (t - 0.72) / 0.16;
+      return mix(vec3(0.94, 0.68, 0.15), vec3(0.98, 0.35, 0.02), smoothstep(0.0, 1.0, s));
     } else {
-      // Bright Yellow to Intense White Glow
-      float s = (t - 0.90) / 0.10;
-      c = mix(vec3(1.0, 0.92, 0.15), vec3(1.0, 1.0, 1.0), s);
+      float s = (t - 0.88) / 0.12;
+      return mix(vec3(0.98, 0.35, 0.02), vec3(1.00, 1.00, 0.94), smoothstep(0.0, 1.0, s));
     }
-
-    return c;
   }
 
   void main() {
     vec3 normal = normalize(vNormal);
     vec3 viewDir = normalize(vViewPosition);
-
     vec3 sunDir = normalize(uSunDirection);
+
+    // Directional solar irradiance flux
     float solarIncidence = max(dot(normal, sunDir), 0.0);
 
-    // Dynamic solar thermal absorption: sunlight-exposed active surfaces gain heat
-    float solarAbsorption = solarIncidence * 0.35 * uEmissivity;
-    float effectiveHeat = clamp(uBaseTemp + solarAbsorption, 0.05, 1.0);
+    // Baseline heat profile
+    float effectiveHeat = uBaseTemp;
 
-    // Radiative limb cooling (Fresnel angle dissipation)
+    // Procedural solar panel cell micro-gradient (photovoltaic silicon thermal distribution)
+    if (uIsSolarPanel == 1) {
+      // Create high-contrast photovoltaic cell grid thermal variations
+      float gridX = sin(vLocalPosition.x * 14.0);
+      float gridY = cos(vLocalPosition.y * 14.0);
+      float cellVariation = (gridX * gridY) * 0.08;
+      
+      // Solar panels directly exposed to sun heat up to 0.88 - 0.98 (bright orange/yellow/white)
+      // Rear/shadow side radiates heat down to ~0.45 - 0.60 (cyan/green/ochre)
+      float solarFaceHeat = solarIncidence > 0.05 ? (0.35 * solarIncidence) : -0.15;
+      effectiveHeat = clamp(uBaseTemp + solarFaceHeat + cellVariation, 0.25, 0.98);
+    } else {
+      // General satellite chassis and electronics body components
+      // Sun-facing surfaces heat up; shadowed cold sides dissipate heat into deep space
+      float solarFlux = (solarIncidence * 0.32 - (1.0 - solarIncidence) * 0.12) * uEmissivity;
+      effectiveHeat = clamp(uBaseTemp + solarFlux, 0.08, 0.98);
+    }
+
+    // Radiative limb dissipation (Fresnel grazing angle cooling)
     float fresnel = 1.0 - max(dot(viewDir, normal), 0.0);
     effectiveHeat = clamp(effectiveHeat - fresnel * 0.04, 0.05, 1.0);
 
-    // Micro-sensor thermal noise
-    float noise = (fract(sin(dot(gl_FragCoord.xy + vec2(uTime * 12.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012;
-    effectiveHeat = clamp(effectiveHeat + noise, 0.05, 1.0);
+    // Sensor detector temporal noise
+    float noise = (fract(sin(dot(gl_FragCoord.xy + vec2(uTime * 8.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.008;
+    effectiveHeat = clamp(effectiveHeat + noise, 0.0, 1.0);
 
-    vec3 thermalRgb = radiometricThermal(effectiveHeat);
+    vec3 thermalRgb = satelliteEOIRThermal(effectiveHeat);
 
     gl_FragColor = vec4(thermalRgb, 1.0);
   }
@@ -113,7 +127,7 @@ const ThermalFragmentShader = `
 
 const processedSceneCache = new Map();
 
-function createThermalMaterial(tempValue, emissivity = 0.85) {
+function createThermalMaterial(tempValue, emissivity = 0.85, isSolarPanel = false) {
   return new THREE.ShaderMaterial({
     vertexShader: ThermalVertexShader,
     fragmentShader: ThermalFragmentShader,
@@ -122,6 +136,7 @@ function createThermalMaterial(tempValue, emissivity = 0.85) {
       uEmissivity: { value: emissivity },
       uSunDirection: { value: new THREE.Vector3(15, 12, 10).normalize() },
       uTime: { value: 0 },
+      uIsSolarPanel: { value: isSolarPanel ? 1 : 0 },
     },
   });
 }
@@ -246,19 +261,25 @@ function getCachedProcessedScene(scene, sensorMode) {
       const parentNameLower = (child.parent?.name || "").toLowerCase();
       const originalMatName = (child.material?.name || "").toLowerCase();
 
-      // Hot heat sources (solar panels, propulsion, active components): 0.95 - 0.98
-      // Metallic body surfaces: 0.65
-      // Cold shaded sections: 0.22 - 0.35
+      // Satellite Thermal Characterization:
+      // - Solar Arrays: High-radiance active photovoltaic arrays (0.88 - 0.95 base)
+      // - Engine / Thruster Nozzles / Heat Sinks: Extreme thermal sources (0.96 - 0.98)
+      // - Multi-Layer Insulation (MLI) Gold packings: Moderate-high reflection (0.75)
+      // - Spacecraft Bus & Structural Chassis: Ambient conductive heat (0.55 - 0.65)
+      // - Optical Sensors, Lenses & Communications Dishes: Cooled / passive elements (0.20 - 0.35)
       let tempVal = 0.58;
       let emissVal = 0.85;
+      let isSolar = false;
 
       if (
+        child.name === "Object_56" ||
         parentNameLower.includes("solar") ||
         nameLower.includes("solar") ||
         originalMatName.includes("solar")
       ) {
-        tempVal = 0.95;
-        emissVal = 0.96;
+        tempVal = 0.90;
+        emissVal = 0.95;
+        isSolar = true;
       } else if (
         parentNameLower.includes("grill") ||
         nameLower.includes("thruster") ||
@@ -268,27 +289,30 @@ function getCachedProcessedScene(scene, sensorMode) {
         tempVal = 0.98;
         emissVal = 0.98;
       } else if (
+        child.name === "Object_5" ||
         parentNameLower.includes("packings") ||
         originalMatName.includes("gold") ||
         nameLower.includes("packing")
       ) {
-        tempVal = 0.76;
-        emissVal = 0.70;
+        tempVal = 0.74;
+        emissVal = 0.75;
       } else if (
+        child.name === "Object_4" ||
+        child.name === "Object_6" ||
         parentNameLower.includes("body") ||
         nameLower.includes("body") ||
         originalMatName.includes("satellite_2")
       ) {
-        tempVal = 0.65;
-        emissVal = 0.82;
+        tempVal = 0.62;
+        emissVal = 0.85;
       } else if (
         parentNameLower.includes("disc") ||
         parentNameLower.includes("lense") ||
         nameLower.includes("disc") ||
         nameLower.includes("lense")
       ) {
-        tempVal = 0.35;
-        emissVal = 0.55;
+        tempVal = 0.28;
+        emissVal = 0.45;
       } else if (
         parentNameLower.includes("cable") ||
         nameLower.includes("cable") ||
@@ -296,26 +320,14 @@ function getCachedProcessedScene(scene, sensorMode) {
         nameLower.includes("strut") ||
         nameLower.includes("boom")
       ) {
-        tempVal = 0.22;
-        emissVal = 0.50;
+        tempVal = 0.18;
+        emissVal = 0.40;
       } else {
-        if (child.geometry) {
-          if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
-          const bbox = child.geometry.boundingBox;
-          const center = new THREE.Vector3();
-          if (bbox) bbox.getCenter(center);
-
-          if (Math.abs(center.x) > 1.0) {
-            tempVal = 0.92;
-          } else if (center.z > 0.6 || center.y < -0.4) {
-            tempVal = 0.96;
-          } else {
-            tempVal = 0.60;
-          }
-        }
+        tempVal = 0.50;
+        emissVal = 0.70;
       }
 
-      child.material = createThermalMaterial(tempVal, emissVal);
+      child.material = createThermalMaterial(tempVal, emissVal, isSolar);
     });
 
     processedSceneCache.set(cacheKey, cloned);
@@ -503,7 +515,7 @@ function SensorSceneWorld({
 
   return (
     <>
-      <color attach="background" args={[isDeepSpaceBlack ? "#000000" : "#02050c"]} />
+      <color attach="background" args={[isThermal ? "#040817" : isLidar ? "#000000" : "#02050c"]} />
 
       <PhysicalSensorCameraController
         sensor={sensor}

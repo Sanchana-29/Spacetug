@@ -4,11 +4,11 @@
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(56, 189, 248, 0.25);
   border-radius: 12px;
-  padding: 12px 20px;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
   box-sizing: border-box;
   flex-shrink: 0;
   width: 100%;
@@ -17,19 +17,21 @@
 .controls-left-group {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 32px;
   flex: 1;
+  min-width: 0;
 }
 
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
+  min-width: 0;
 }
 
 .threshold-group {
-  min-width: 200px;
-  max-width: 280px;
+  min-width: 260px;
+  max-width: 340px;
   flex: 1;
 }
 
@@ -37,13 +39,24 @@
   color: #94a3b8;
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.threshold-icon {
+  color: #38bdf8;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .threshold-group label strong {
   color: #38bdf8;
-  font-family: monospace;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  margin-left: 2px;
 }
 
 .threshold-group input[type="range"] {

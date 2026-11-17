@@ -150,7 +150,9 @@
   letter-spacing: 0.5px;
 }
 
-/* 3D CANVAS STAGE */
+/* ═══════════════════════════════════════
+   UPPER VIEWPORT — 3D CANVAS STAGE
+   ═══════════════════════════════════════ */
 .canvas-3d-stage {
   flex: 1;
   width: 100%;
@@ -251,7 +253,235 @@
   border-radius: 4px;
 }
 
-/* 2D OPTICAL KEYPOINT PROJECTION CANVAS */
+/* ═══════════════════════════════════════════════════════════════════
+   LOWER VIEWPORT — PURE 2D KEYPOINT PROJECTION PANEL
+   No WebGL, no canvas, no Three.js.
+   All layers are plain DOM / CSS / SVG.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Root stacking context */
+.kp2d-panel {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #030b1a;
+  min-height: 0;
+}
+
+/* ── Layer 0: deep-space background ─────────────────────────── */
+.kp2d-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(14, 42, 80, 0.45) 0%, transparent 70%),
+    radial-gradient(1px 1px at  8%  15%, #fff, transparent),
+    radial-gradient(1px 1px at 23%  72%, #38bdf8, transparent),
+    radial-gradient(1px 1px at 55%  88%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 78% 32%, #38bdf8, transparent),
+    radial-gradient(1px 1px at 91%  61%, #fff, transparent),
+    radial-gradient(1px 1px at 14%  48%, #fff, transparent),
+    radial-gradient(1px 1px at 67%  19%, #38bdf8, transparent);
+  z-index: 0;
+}
+
+.kp2d-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ── Layer 1a: real sensor frame (when available) ─────────── */
+.kp2d-frame-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0.9;
+  z-index: 1;
+}
+
+/* ── Layer 1b: SVG satellite schematic ───────────────────── */
+.kp2d-schematic {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.kp2d-schematic svg {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* ── Layer 2: SVG skeleton connector lines ───────────────── */
+.kp2d-skeleton-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.skel-line {
+  stroke: rgba(56, 189, 248, 0.32);
+  stroke-width: 1;
+  stroke-dasharray: 6 8;
+  stroke-linecap: round;
+}
+
+.skel-axis {
+  stroke: rgba(16, 185, 129, 0.30);
+  stroke-dasharray: 5 7;
+}
+
+/* ── Layer 3: Landmark marker divs ──────────────────────── */
+.kp2d-marker {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Outer pulsing ring */
+.kp2d-ring-outer {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #00d4ff;
+  border-radius: 50%;
+  animation: kp2dPulse 2.2s ease-in-out infinite;
+}
+
+/* Inner dashed ring */
+.kp2d-ring-inner {
+  position: absolute;
+  top: 25%;
+  left: 25%;
+  width: 50%;
+  height: 50%;
+  border: 1px dashed rgba(0, 212, 255, 0.7);
+  border-radius: 50%;
+}
+
+/* Centre dot */
+.kp2d-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #ffffff;
+}
+
+/* Numbered badge (top-right of ring) */
+.kp2d-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #00d4ff;
+  color: #040c18;
+  font-family: 'Orbitron', monospace;
+  font-size: 7px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.7);
+}
+
+/* Tooltip label (shown on hover via title attr; CSS fallback below) */
+.kp2d-label {
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  font-weight: 600;
+  color: rgba(56, 189, 248, 0.9);
+  background: rgba(3, 11, 26, 0.88);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 3px;
+  padding: 1px 5px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+/* Show label when parent element is hovered
+   (pointer-events: none on parent means hover won't fire —
+    we use a wrapper trick via the title attr natively) */
+.kp2d-marker:hover .kp2d-label {
+  opacity: 1;
+}
+
+@keyframes kp2dPulse {
+  0%, 100% { opacity: 0.92; transform: scale(1); }
+  50%       { opacity: 0.50; transform: scale(1.18); }
+}
+
+/* ── Layer 4: HUD footer ────────────────────────────────── */
+.kp2d-footer {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.hud-pill-auto {
+  background: rgba(9, 16, 32, 0.90);
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  color: #38bdf8;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.hud-pill-algo {
+  background: rgba(9, 16, 32, 0.90);
+  border: 1px solid rgba(16, 185, 129, 0.32);
+  color: #10b981;
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   2D OPTICAL KEYPOINT PROJECTION — LOWER PANEL
+   ═══════════════════════════════════════════════════════════ */
+
+/* Wrapper: stacking context for all 4 layers */
 .keypoints-2d-canvas-wrapper {
   flex: 1;
   width: 100%;
@@ -261,17 +491,26 @@
   overflow: hidden;
 }
 
+/* Layer 0a: real sensor frame underlay */
 .optical-frame-underlay {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   opacity: 0.85;
+  z-index: 0;
 }
 
+/* Layer 0b: starfield + tactical grid background */
 .starfield-tactical-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  background-image: 
+  background-image:
     radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0,0,0,0)),
     radial-gradient(1px 1px at 40px 70px, #38bdf8, rgba(0,0,0,0)),
     radial-gradient(1px 1px at 90px 40px, #ffffff, rgba(0,0,0,0)),
@@ -279,7 +518,7 @@
     radial-gradient(1px 1px at 200px 90px, #ffffff, rgba(0,0,0,0));
   background-repeat: repeat;
   background-size: 220px 180px;
-  position: relative;
+  z-index: 0;
 }
 
 .tactical-grid-overlay {
@@ -294,71 +533,111 @@
   background-size: 24px 24px;
 }
 
-/* AUTO-KEYPOINT TARGET RING */
-.auto-keypoint-target {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.kp-ring-outer {
+/* Layer 1: Three.js canvas (satellite mesh + LowerPanelProjector) */
+.keypoints-threejs-layer {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  border: 1.5px solid #00d4ff;
-  border-radius: 50%;
-  box-shadow: 0 0 10px rgba(0, 212, 255, 0.6);
-  animation: targetPulse 2s infinite ease-in-out;
+  pointer-events: none;
+  z-index: 1;
 }
 
-.kp-ring-inner {
+.keypoints-threejs-layer canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+}
+
+/* Layer 2: SVG live skeleton connector lines */
+.kp-connector-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 2;
+}
+
+.kp-conn-line {
+  stroke: rgba(56, 189, 248, 0.30);
+  stroke-width: 1;
+  stroke-dasharray: 5 7;
+  stroke-linecap: round;
+}
+
+.kp-conn-axis {
+  stroke: rgba(16, 185, 129, 0.28);
+  stroke-dasharray: 4 6;
+}
+
+/* Layer 3: Landmark marker divs */
+.kp-marker {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.kp-marker .kp-ring-outer {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid #00d4ff;
+  border-radius: 50%;
+  animation: kpPulse 2s ease-in-out infinite;
+}
+
+.kp-marker .kp-ring-inner {
   position: absolute;
   top: 25%;
   left: 25%;
   width: 50%;
   height: 50%;
-  border: 1px dashed rgba(0, 212, 255, 0.8);
+  border: 1px dashed rgba(0, 212, 255, 0.75);
   border-radius: 50%;
 }
 
-.kp-crosshair-center {
+.kp-marker .kp-dot-center {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 4px;
-  height: 4px;
-  background: #ffffff;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 6px #ffffff;
+  background: #ffffff;
 }
 
-.kp-index-label {
+.kp-marker .kp-index-badge {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  background: rgba(0, 212, 255, 0.9);
-  color: #050b14;
-  font-family: 'Orbitron', monospace;
-  font-size: 8px;
-  font-weight: 800;
-  width: 12px;
-  height: 12px;
+  top: -9px;
+  right: -9px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
+  background: #00d4ff;
+  color: #040c18;
+  font-family: 'Orbitron', monospace;
+  font-size: 7px;
+  font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
+  letter-spacing: 0;
 }
 
-@keyframes targetPulse {
-  0%, 100% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.15); opacity: 0.6; }
+@keyframes kpPulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(1.14); }
 }
 
+/* Layer 4: HUD footer */
 .keypoint-hud-footer {
   position: absolute;
   bottom: 8px;
@@ -368,10 +647,11 @@
   justify-content: space-between;
   align-items: center;
   pointer-events: none;
+  z-index: 10;
 }
 
 .hud-pill-auto {
-  background: rgba(9, 16, 32, 0.85);
+  background: rgba(9, 16, 32, 0.88);
   border: 1px solid rgba(56, 189, 248, 0.3);
   color: #38bdf8;
   font-family: 'Orbitron', monospace;
@@ -383,7 +663,7 @@
 }
 
 .hud-pill-algo {
-  background: rgba(9, 16, 32, 0.85);
+  background: rgba(9, 16, 32, 0.88);
   border: 1px solid rgba(16, 185, 129, 0.3);
   color: #10b981;
   font-family: 'Orbitron', monospace;

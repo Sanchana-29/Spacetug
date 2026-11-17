@@ -161,7 +161,7 @@ function ThermalView({
       />
 
       <div className="thermal-label">
-        SWIR & THERMAL RADIANCE [MONOCHROMATIC INFRARED SPECTRUM 1.4 - 14.0 μm]
+        EOIR THERMAL IMAGERY [SATELLITE THERMAL PAYLOAD 8.0 - 14.0 μm]
       </div>
 
       <div className="temperature-readout">
