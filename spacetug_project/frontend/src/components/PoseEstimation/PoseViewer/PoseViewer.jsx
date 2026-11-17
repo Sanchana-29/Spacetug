@@ -149,6 +149,9 @@ function PoseViewer({
   const landmarkIds = geo?.points ? Object.keys(geo.points) : [];
   const usedCount = Object.keys(detected).length;
   const markerR = Math.max(4, imgW / 160);
+  // ORB/SIFT mode: backend returns an annotated image (inliers / outliers / reprojection)
+  const matchImage = poseResult?.match_image || null;
+  const featureMode = Boolean(poseResult?.feature);
 
   return (
     <div className="pose-viewer-dual-container">
@@ -226,10 +229,19 @@ function PoseViewer({
         <div className="viewport-header-row">
           <div className="viewport-title-group">
             <FaCrosshairs className="title-icon-cyan" />
-            <h4>2D KEYPOINTS ({usedCount}/{landmarkIds.length || 9} LANDMARKS USED)</h4>
+            <h4>
+              {featureMode
+                ? `${poseResult.feature} MATCHES (${poseResult.inliers ?? 0} INLIERS / ${poseResult.matches ?? 0} MATCHES / ${poseResult.keypoints ?? 0} KEYPOINTS)`
+                : `2D KEYPOINTS (${usedCount}/${landmarkIds.length || 9} LANDMARKS USED)`}
+            </h4>
           </div>
           <span className="badge-auto-projected">
-            <FaCheckCircle /> {solved ? `RMSE ${Number(poseResult.reprojection_rmse_px).toFixed(3)} px` : "NOT SOLVED"}
+            <FaCheckCircle />{" "}
+            {solved
+              ? `RMSE ${Number(poseResult.reprojection_rmse_px).toFixed(3)} px`
+              : featureMode
+              ? poseResult.identification || "NOT MATCHED"
+              : "NOT SOLVED"}
           </span>
         </div>
 
@@ -238,7 +250,9 @@ function PoseViewer({
             <div className="kp2d-grid" />
           </div>
 
-          {frameSource ? (
+          {matchImage ? (
+            <img className="kp2d-match-img" src={matchImage} alt="Feature matches on the captured frame" />
+          ) : frameSource ? (
             <svg
               className="kp2d-overlay-svg"
               viewBox={`0 0 ${imgW} ${imgH}`}
@@ -279,13 +293,22 @@ function PoseViewer({
           )}
 
           <div className="kp2d-footer">
-            <span className="hud-pill-auto">
-              <span style={{ color: "#22c55e" }}>○ used</span>{" "}
-              <span style={{ color: "#ef4444" }}>✕ reprojected</span>{" "}
-              <span style={{ color: "#a78bfa" }}>● truth</span>
-            </span>
+            {featureMode ? (
+              <span className="hud-pill-auto">
+                <span style={{ color: "#22c55e" }}>○ inlier</span>{" "}
+                <span style={{ color: "#ef4444" }}>○ rejected</span>{" "}
+                <span style={{ color: "#f97316" }}>+ reprojected</span>
+              </span>
+            ) : (
+              <span className="hud-pill-auto">
+                <span style={{ color: "#22c55e" }}>○ used</span>{" "}
+                <span style={{ color: "#ef4444" }}>✕ reprojected</span>{" "}
+                <span style={{ color: "#a78bfa" }}>● truth</span>
+              </span>
+            )}
             <span className="hud-pill-algo">
-              OPENCV {(poseResult?.method || algorithm).toUpperCase()} · {feature === "LANDMARKS" ? "PROJECTED LANDMARKS" : feature}
+              OPENCV {(poseResult?.method || algorithm).toUpperCase()} ·{" "}
+              {featureMode ? `${poseResult.feature} + PnP RANSAC` : feature === "LANDMARKS" ? "PROJECTED LANDMARKS" : feature}
             </span>
           </div>
         </div>

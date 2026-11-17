@@ -3,6 +3,8 @@ import {
   dataURLtoBlob,
   runDetectionApi,
   runPoseEstimationApi,
+  estimatePoseFromImageApi,
+  addFeatureReferenceApi,
   getRecentDetections,
   getRecentPoses,
 } from "../services/api";
@@ -48,6 +50,15 @@ export function SensorProvider({ children }) {
   const [detectionResult, setDetectionResultState] = useState(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.4);
   const [poseResult, setPoseResultState] = useState(null);
+  // Phase 2: automatically add every captured frame (with ground-truth pose) to the ORB/SIFT library
+  const [autoAddToLibrary, setAutoAddToLibraryState] = useState(
+    () => readStorage("spacetug_auto_add_library", false) === true
+  );
+  const [libraryVersion, setLibraryVersion] = useState(0);
+  const setAutoAddToLibrary = useCallback((v) => {
+    setAutoAddToLibraryState(Boolean(v));
+    writeStorage("spacetug_auto_add_library", Boolean(v));
+  }, []);
   const [missionGallery, setMissionGallery] = useState([]);
 
   // Detection Mode: "Dataset Image" | "Live Stream"
@@ -155,8 +166,21 @@ export function SensorProvider({ children }) {
           return updated;
         });
       }
+
+      const gt = taggedFrame?.ground_truth_pose;
+      if (autoAddToLibrary && taggedFrame?.imageData && gt && taggedFrame?.camera_matrix) {
+        addFeatureReferenceApi({
+          image: taggedFrame.imageData,
+          camera_matrix: taggedFrame.camera_matrix,
+          ground_truth: { position: gt.position, rotation_matrix: gt.rotation_matrix },
+          view_id: String(taggedFrame.id),
+          sensor_name: taggedFrame.selectedSensor,
+        })
+          .then(() => setLibraryVersion((v) => v + 1))
+          .catch((e) => console.warn("Auto-add to feature library failed:", e?.message));
+      }
     },
-    [missionId]
+    [missionId, autoAddToLibrary]
   );
 
   const setDetectionResult = useCallback(
@@ -186,7 +210,10 @@ export function SensorProvider({ children }) {
     (result) => {
       setPoseResultState(result);
       const poseKey = getMissionKey(missionId, "pose_result");
-      writeStorage(poseKey, result ?? null);
+      // the ORB/SIFT match visualisation is large: keep it in memory only
+      const storable = result ? { ...result } : null;
+      if (storable) delete storable.match_image;
+      writeStorage(poseKey, storable);
     },
     [missionId]
   );
@@ -242,8 +269,10 @@ export function SensorProvider({ children }) {
     [capturedFrame, confidenceThreshold, missionId, setDetectionResult]
   );
 
+  // mode "landmarks" -> /api/pose/estimate (2D landmarks -> solvePnP)
+  // mode "image"     -> /api/pose/estimate-from-image (ORB/SIFT matching -> PnP RANSAC)
   const runPoseEstimation = useCallback(
-    async (payload) => {
+    async (payload, mode = "landmarks") => {
       if (!payload || typeof payload !== "object") {
         setPoseError("Pose estimation payload is missing or invalid.");
         return null;
@@ -265,7 +294,10 @@ export function SensorProvider({ children }) {
           mission_id: payload.mission_id || capturedFrame.mission_id || missionId || "MSN-DEFAULT-01",
         };
 
-        const result = await runPoseEstimationApi(finalPayload);
+        const result =
+          mode === "image"
+            ? await estimatePoseFromImageApi(finalPayload)
+            : await runPoseEstimationApi(finalPayload);
         const taggedResult = {
           ...result,
           mission_id: finalPayload.mission_id,
@@ -297,6 +329,9 @@ export function SensorProvider({ children }) {
   );
 
   const value = {
+    autoAddToLibrary,
+    setAutoAddToLibrary,
+    libraryVersion,
     selectedSensor,
     setSelectedSensor,
     sensorThumbnails,

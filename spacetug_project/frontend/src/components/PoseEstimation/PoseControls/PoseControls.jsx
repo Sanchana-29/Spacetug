@@ -17,7 +17,17 @@ function PoseControls({
   setAutoEstimate,
   onEstimate,
   landmarkStats = { total: 0, inImage: 0, visible: 0 },
+  library = null,
+  libraryBusy = false,
+  libraryMsg = "",
+  onAddToLibrary,
+  onClearLibrary,
+  autoAddToLibrary = false,
+  setAutoAddToLibrary,
 }) {
+  const imageMode = feature === "ORB" || feature === "SIFT";
+  const libViews = library?.views ?? 0;
+  const libPoints = imageMode ? library?.methods?.[feature]?.points ?? 0 : null;
   const { sensorThumbnails, liveInferenceData, capturedFrame, poseResult, poseError, isEstimatingPose } =
     useSensor();
 
@@ -27,7 +37,8 @@ function PoseControls({
     liveInferenceData?.lastFrameUrl;
 
   const imgSize = capturedFrame?.image_size;
-  const canEstimate = Boolean(capturedFrame?.landmarks) && !isEstimatingPose;
+  const canEstimate =
+    Boolean(imageMode ? capturedFrame?.imageData : capturedFrame?.landmarks) && !isEstimatingPose;
 
   let statusClass = "pose-status-idle";
   let statusText = capturedFrame ? "Ready to estimate" : "No frame captured";
@@ -36,7 +47,9 @@ function PoseControls({
     statusText = "Solving...";
   } else if (poseResult?.success) {
     statusClass = "pose-status-ok";
-    statusText = `Pose solved (${poseResult.method})`;
+    statusText = poseResult.identification
+      ? `${poseResult.identification} · ${poseResult.inliers} inliers`
+      : `Pose solved (${poseResult.method})`;
   } else if (poseError) {
     statusClass = "pose-status-fail";
     statusText = "Pose failed";
@@ -91,8 +104,8 @@ function PoseControls({
           <label>Keypoints</label>
           <select value={feature} onChange={(e) => setFeature && setFeature(e.target.value)}>
             <option value="LANDMARKS">Projected landmarks (simulated)</option>
-            <option value="ORB" disabled>ORB matching (Phase 2)</option>
-            <option value="SIFT" disabled>SIFT matching (Phase 2)</option>
+            <option value="ORB">ORB feature matching</option>
+            <option value="SIFT">SIFT feature matching</option>
             <option value="DINOv1" disabled>DINOv1 (Future Work)</option>
           </select>
         </div>
@@ -104,6 +117,30 @@ function PoseControls({
           </select>
         </div>
 
+        {imageMode ? (
+          <div className="control-item library-control" title="Reference frames with known pose. Features are matched against these views.">
+            <label>Library</label>
+            <span className="library-count">
+              {libViews} views · {libPoints} pts
+            </span>
+            <button type="button" className="lib-btn" disabled={libraryBusy || !capturedFrame} onClick={() => onAddToLibrary && onAddToLibrary()}>
+              + Add frame
+            </button>
+            <button type="button" className="lib-btn lib-btn-clear" disabled={libraryBusy || !libViews} onClick={() => onClearLibrary && onClearLibrary()}>
+              Clear
+            </button>
+            <label className="control-check" title="Every new capture (with ground-truth pose) is added to the library automatically. A frame is never matched against itself.">
+              <input
+                type="checkbox"
+                checked={autoAddToLibrary}
+                onChange={(e) => setAutoAddToLibrary && setAutoAddToLibrary(e.target.checked)}
+              />
+              Auto-add captures
+            </label>
+            {libraryMsg && <span className="library-msg">{libraryMsg}</span>}
+          </div>
+        ) : (
+        <>
         <div className="control-item noise-control" title="Gaussian pixel noise added to the 2D landmarks to simulate keypoint detection error">
           <label>Noise σ</label>
           <input
@@ -125,6 +162,8 @@ function PoseControls({
           />
           Skip occluded
         </label>
+        </>
+        )}
 
         <label className="control-check" title="Estimate automatically when a new frame is captured">
           <input

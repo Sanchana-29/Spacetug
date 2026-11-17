@@ -8,13 +8,25 @@ import PoseViewer from "../components/PoseEstimation/PoseViewer/PoseViewer";
 import PoseResults from "../components/PoseEstimation/PoseResults/PoseResults";
 import { useSensor } from "../context/SensorContext";
 import { buildImagePoints } from "../utils/poseGeometry";
+import {
+  getFeatureLibraryApi,
+  addFeatureReferenceApi,
+  clearFeatureLibraryApi,
+} from "../services/api";
 
 function PoseEstimation() {
-  const { capturedFrame, runPoseEstimation } = useSensor();
+  const {
+    capturedFrame,
+    runPoseEstimation,
+    detectionResult,
+    autoAddToLibrary,
+    setAutoAddToLibrary,
+    libraryVersion,
+  } = useSensor();
 
   // Solver: ITERATIVE | EPNP | SQPNP (mapped to cv2.SOLVEPNP_* in the backend)
   const [algorithm, setAlgorithm] = useState("ITERATIVE");
-  // Keypoint source. Phase 1: projected 3D landmarks (simulated detector).
+  // Keypoint source: LANDMARKS (projected 3D landmarks) | ORB | SIFT (real image features)
   const [feature, setFeature] = useState("LANDMARKS");
   const [target, setTarget] = useState("SAT-001");
   const [noiseSigma, setNoiseSigma] = useState(0);
@@ -22,6 +34,73 @@ function PoseEstimation() {
   const [autoEstimate, setAutoEstimate] = useState(true);
   const [isLiveStreaming, setIsLiveStreaming] = useState(true);
   const [lastImagePoints, setLastImagePoints] = useState(null);
+
+  // ── ORB/SIFT reference library ─────────────────────────────────────────
+  const [library, setLibrary] = useState(null);
+  const [libraryBusy, setLibraryBusy] = useState(false);
+  const [libraryMsg, setLibraryMsg] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    getFeatureLibraryApi()
+      .then((d) => {
+        if (!cancelled) setLibrary(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [libraryVersion]);
+
+  const handleAddToLibrary = useCallback(async () => {
+    const gt = capturedFrame?.ground_truth_pose;
+    if (!capturedFrame?.imageData || !gt || !capturedFrame?.camera_matrix) {
+      setLibraryMsg("Capture a frame (with ground-truth pose) first");
+      return;
+    }
+    setLibraryBusy(true);
+    try {
+      const r = await addFeatureReferenceApi({
+        image: capturedFrame.imageData,
+        camera_matrix: capturedFrame.camera_matrix,
+        ground_truth: { position: gt.position, rotation_matrix: gt.rotation_matrix },
+        view_id: String(capturedFrame.id),
+        sensor_name: capturedFrame.selectedSensor,
+      });
+      setLibrary(r);
+      setLibraryMsg(
+        r.success
+          ? `Added: ${r.per_method?.ORB?.lifted ?? 0} ORB + ${r.per_method?.SIFT?.lifted ?? 0} SIFT points`
+          : r.message
+      );
+    } catch (e) {
+      setLibraryMsg(e.message);
+    } finally {
+      setLibraryBusy(false);
+    }
+  }, [capturedFrame]);
+
+  const handleClearLibrary = useCallback(async () => {
+    setLibraryBusy(true);
+    try {
+      setLibrary(await clearFeatureLibraryApi());
+      setLibraryMsg("Library cleared");
+    } catch (e) {
+      setLibraryMsg(e.message);
+    } finally {
+      setLibraryBusy(false);
+    }
+  }, []);
+
+  // YOLO bbox of the current frame (pixels of the captured image), if detection was run
+  const detectionBBox = useMemo(() => {
+    const det = detectionResult?.detections?.[0];
+    const b = det?.bounding_box;
+    if (!b || !capturedFrame?.image_size) return null;
+    const sx = capturedFrame.image_size[0] / (detectionResult.image_width || capturedFrame.image_size[0]);
+    const sy = capturedFrame.image_size[1] / (detectionResult.image_height || capturedFrame.image_size[1]);
+    return [b.x * sx, b.y * sy, (b.x + b.width) * sx, (b.y + b.height) * sy];
+  }, [detectionResult, capturedFrame]);
 
   const landmarkStats = useMemo(() => {
     const lm = capturedFrame?.landmarks;
@@ -34,6 +113,28 @@ function PoseEstimation() {
 
   const handleEstimate = useCallback(async () => {
     if (!capturedFrame) return null;
+    const gtPose = capturedFrame.ground_truth_pose;
+
+    if (feature === "ORB" || feature === "SIFT") {
+      setLastImagePoints(null);
+      return runPoseEstimation(
+        {
+          image: capturedFrame.imageData,
+          camera_matrix: capturedFrame.camera_matrix,
+          feature,
+          method: algorithm,
+          bbox: detectionBBox,
+          // leave-one-out: never match the frame against itself if it is in the library
+          exclude_view_id: String(capturedFrame.id),
+          ground_truth: gtPose
+            ? { position: gtPose.position, rotation_matrix: gtPose.rotation_matrix }
+            : null,
+          sensor_name: capturedFrame.selectedSensor,
+          target_id: target,
+        },
+        "image"
+      );
+    }
 
     const imagePoints = buildImagePoints(capturedFrame, {
       noiseSigmaPx: noiseSigma,
@@ -56,7 +157,7 @@ function PoseEstimation() {
       ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
       target_id: target,
     });
-  }, [capturedFrame, noiseSigma, excludeOccluded, algorithm, feature, target, runPoseEstimation]);
+  }, [capturedFrame, noiseSigma, excludeOccluded, algorithm, feature, target, runPoseEstimation, detectionBBox]);
 
   // Auto-estimate once for every newly captured frame
   const lastAutoFrameRef = useRef(null);
@@ -85,6 +186,13 @@ function PoseEstimation() {
           setAutoEstimate={setAutoEstimate}
           onEstimate={handleEstimate}
           landmarkStats={landmarkStats}
+          library={library}
+          libraryBusy={libraryBusy}
+          libraryMsg={libraryMsg}
+          onAddToLibrary={handleAddToLibrary}
+          onClearLibrary={handleClearLibrary}
+          autoAddToLibrary={autoAddToLibrary}
+          setAutoAddToLibrary={setAutoAddToLibrary}
         />
 
         <div className="pose-middle">

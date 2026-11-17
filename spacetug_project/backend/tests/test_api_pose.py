@@ -45,3 +45,9 @@ def test_pose_estimate_endpoint_returns_estimate_and_errors():
     assert d["errors_vs_gt"]["rotation_error_deg"] < 0.05
     assert d["ground_truth"]["distance_m"] == pytest.approx(d["distance_m"], rel=1e-3)
     assert d["solve_time_ms"] >= 0
+
+
+def test_feature_library_endpoints_respond():
+    r = client.get("/api/features/reference")
+    assert r.status_code == 200
+    assert "methods" in r.json() and "ORB" in r.json()["methods"]

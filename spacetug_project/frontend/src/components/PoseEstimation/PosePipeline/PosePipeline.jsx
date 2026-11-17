@@ -60,7 +60,10 @@ function PosePipeline({ algorithm = "ITERATIVE", isLiveStreaming = true }) {
             <FaTable className="badge-icon" />
             <span>ESTIMATED [R | t] (OPENCV CAMERA FRAME)</span>
           </div>
-          <span className="matrix-dim-tag">{SOLVER_LABELS[est?.method] || SOLVER_LABELS[algorithm] || algorithm}</span>
+          <span className="matrix-dim-tag">
+            {poseResult?.feature ? `${poseResult.feature} + ` : ""}
+            {SOLVER_LABELS[est?.method] || SOLVER_LABELS[algorithm] || algorithm}
+          </span>
         </div>
 
         <div className="matrix-table-container">
@@ -185,8 +188,14 @@ function PosePipeline({ algorithm = "ITERATIVE", isLiveStreaming = true }) {
             </strong>
           </div>
           <div className="metric-cell">
-            <span className="cell-label">LANDMARKS USED</span>
-            <strong className="cell-val">{solved ? est.landmarks_used : "--"}</strong>
+            <span className="cell-label">{poseResult?.feature ? "INLIERS / MATCHES" : "LANDMARKS USED"}</span>
+            <strong className="cell-val">
+              {poseResult?.feature
+                ? `${poseResult.inliers ?? 0} / ${poseResult.matches ?? 0} (${Math.round((poseResult.inlier_ratio || 0) * 100)}%)`
+                : solved
+                ? est.landmarks_used
+                : "--"}
+            </strong>
           </div>
           <div className="metric-cell">
             <span className="cell-label">RANGE ERROR</span>

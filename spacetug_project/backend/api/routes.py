@@ -617,6 +617,99 @@ def estimate_pose_api(req: PoseRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pose estimation error: {str(e)}")
 
+# --------------------------------------------------
+# PHASE 2: FEATURE LIBRARY + FEATURE-BASED POSE (ORB / SIFT)
+# --------------------------------------------------
+
+class ReferenceViewRequest(BaseModel):
+    image: str  # data URL / base64 of the captured frame
+    camera_matrix: List[List[float]]
+    ground_truth: dict  # {"position": {x,y,z}, "rotation_matrix": 3x3} in OpenCV camera frame
+    view_id: str
+    sensor_name: Optional[str] = None
+    bbox: Optional[List[float]] = None
+
+
+class FeaturePoseRequest(BaseModel):
+    image: str
+    camera_matrix: List[List[float]]
+    feature: str = "ORB"  # ORB | SIFT
+    method: str = "ITERATIVE"
+    bbox: Optional[List[float]] = None
+    ground_truth: Optional[dict] = None
+    exclude_view_id: Optional[str] = None
+    ratio_test: float = Field(0.75, gt=0.3, le=0.95)
+    min_inliers: int = Field(15, ge=6, le=500)
+    min_inlier_ratio: float = Field(0.40, ge=0.0, le=1.0)
+    target_id: Optional[str] = "SAT-001"
+    mission_id: Optional[str] = None
+    frame_id: Optional[str] = None
+    sensor_name: Optional[str] = None
+
+
+@router.get("/features/reference")
+def get_feature_library():
+    from cv.features import library_status
+    return library_status()
+
+
+@router.delete("/features/reference")
+def clear_feature_library():
+    from cv.features import clear_library
+    return clear_library()
+
+
+@router.post("/features/reference")
+def add_feature_reference(req: ReferenceViewRequest):
+    from cv.features import add_reference_view
+    try:
+        return add_reference_view(req.image, req.camera_matrix, req.ground_truth, req.view_id,
+                                  sensor_name=req.sensor_name, bbox=req.bbox)
+    except (ValueError, FileNotFoundError, KeyError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reference view error: {e}")
+
+
+@router.post("/pose/estimate-from-image")
+def estimate_pose_from_image_api(req: FeaturePoseRequest):
+    from cv.features import estimate_pose_from_image
+    try:
+        result = estimate_pose_from_image(
+            req.image, req.camera_matrix, feature=req.feature, method=req.method,
+            bbox=req.bbox, ground_truth=req.ground_truth, exclude_view_id=req.exclude_view_id,
+            ratio_test=req.ratio_test, min_inliers=req.min_inliers,
+            min_inlier_ratio=req.min_inlier_ratio, target_id=req.target_id or "SAT-001")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Feature pose error: {e}")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    result["timestamp"] = now_iso
+    db = get_database()
+    if db is not None:
+        doc = {k: result.get(k) for k in (
+            "success", "identified", "identification", "feature", "method", "keypoints", "matches",
+            "inliers", "inlier_ratio", "position", "attitude", "quaternion", "rotation_matrix",
+            "distance_m", "reprojection_rmse_px", "solve_time_ms", "total_time_ms",
+            "errors_vs_gt", "ground_truth", "message")}
+        doc.update({"timestamp": now_iso, "mission_id": req.mission_id, "frame_id": req.frame_id,
+                    "target_id": req.target_id, "sensor_name": req.sensor_name,
+                    "keypoint_source": req.feature.upper()})
+        res = db.pose_estimates.insert_one(doc)
+        result["record_id"] = str(res.inserted_id)
+        if req.mission_id:
+            db.mission_logs.insert_one({
+                "mission_id": req.mission_id,
+                "level": "INFO" if result.get("identified") else "WARNING",
+                "event": "TARGET_IDENTIFIED" if result.get("identified") else "TARGET_NOT_MATCHED",
+                "message": f"{req.feature.upper()}: {result.get('identification')} "
+                           f"({result.get('inliers', 0)} inliers / {result.get('matches', 0)} matches)",
+                "timestamp": now_iso,
+            })
+    return result
+
 @router.get("/poses")
 def get_pose_history(mission_id: Optional[str] = None, limit: int = Query(20, ge=1, le=100)):
     db = get_database()

@@ -324,3 +324,37 @@ export function getExportUrl(type, missionId = null) {
       return null;
   }
 }
+// ─── Phase 2: feature library + ORB/SIFT feature-based pose ─────────────────
+async function jsonOrThrow(response, fallbackMsg) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || fallbackMsg);
+  return data;
+}
+
+export async function getFeatureLibraryApi() {
+  const r = await fetchWithTimeout(`${API_BASE_URL}/api/features/reference`, {}, 5000);
+  return jsonOrThrow(r, "Failed to read the feature library");
+}
+
+export async function addFeatureReferenceApi(payload) {
+  const r = await fetch(`${API_BASE_URL}/api/features/reference`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return jsonOrThrow(r, "Failed to add the reference view");
+}
+
+export async function clearFeatureLibraryApi() {
+  const r = await fetch(`${API_BASE_URL}/api/features/reference`, { method: "DELETE" });
+  return jsonOrThrow(r, "Failed to clear the feature library");
+}
+
+export async function estimatePoseFromImageApi(payload) {
+  const r = await fetch(`${API_BASE_URL}/api/pose/estimate-from-image`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return jsonOrThrow(r, "Feature-based pose request failed");
+}
