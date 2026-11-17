@@ -302,3 +302,29 @@
   color: #94a3b8;
   font-family: 'JetBrains Mono', monospace;
 }
+
+/* ---- Phase 1: estimated vs ground truth comparison ---- */
+.rq-row.cmp-row {
+  display: grid;
+  grid-template-columns: 22px 54px 1fr 1fr 64px;
+  align-items: center;
+  gap: 6px;
+}
+.rq-row.cmp-head span {
+  font-size: 10px;
+  color: #64748b;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.rq-subval.gt-val {
+  color: #a78bfa;
+}
+.rq-subval.diff-val {
+  color: #f59e0b;
+  text-align: right;
+}
+.pipeline-hint {
+  margin: 8px 4px 0;
+  font-size: 11px;
+  color: #94a3b8;
+}

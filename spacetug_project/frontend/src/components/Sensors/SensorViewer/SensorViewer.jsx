@@ -24,7 +24,10 @@ import {
   getCameraIntrinsicsMatrix,
   projectLandmarksToPixels,
   getOpenCvGroundTruthPose,
+  landmarksFromApi,
+  TARGET_LANDMARKS_3D,
 } from "../../../utils/poseGeometry";
+import { getPoseLandmarksApi } from "../../../services/api";
 
 function SensorViewer({ sensorData }) {
   const {
@@ -51,6 +54,21 @@ function SensorViewer({ sensorData }) {
 
   const glContextRef = useRef(null);
   const glContextRightRef = useRef(null);
+
+  // 3D landmark definitions: single source of truth from the backend (fallback: local copy)
+  const landmarks3DRef = useRef(TARGET_LANDMARKS_3D);
+  useEffect(() => {
+    let cancelled = false;
+    getPoseLandmarksApi()
+      .then((d) => {
+        const lm = landmarksFromApi(d);
+        if (!cancelled && lm) landmarks3DRef.current = lm;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onGlReady = useCallback((context) => {
     glContextRef.current = context;
@@ -170,33 +188,29 @@ function SensorViewer({ sensorData }) {
           ? `Stereo Camera (${activeEye})`
           : selectedSensor;
 
-      // Extract physical Three.js Camera & Target matrixWorld for authentic 6-DoF ground truth and landmarks
+      // Pose geometry for this exact rendered frame: intrinsics, 2D landmark
+      // projections (with visibility) and the ground-truth pose (OpenCV frame).
       let cameraMatrix = null;
-      let targetLandmarks2D = null;
+      let landmarkGeometry = null;
       let groundTruthPose = null;
-      const vFov = sensorConfig.fov || 60;
-      const imgW = 1280;
-      const imgH = 720;
+      const vFov = context?.camera?.fov || sensorConfig.fov || 60;
+      const canvasEl = context?.gl?.domElement;
+      const imgW = canvasEl?.width || 1280;
+      const imgH = canvasEl?.height || 720;
 
       if (context?.camera && context?.scene) {
-        context.camera.updateMatrixWorld(true);
         const cam = context.camera;
-        cameraMatrix = getCameraIntrinsicsMatrix(imgW, imgH, cam.fov || vFov);
-
-        let targetObj = context.scene.getObjectByName("TargetSpacecraftGroup");
-        if (!targetObj) {
-          context.scene.traverse((child) => {
-            if (child.name === "TargetSpacecraftGroup" || child.name === "satellite_root") {
-              targetObj = child;
-            }
-          });
-        }
-
+        cameraMatrix = getCameraIntrinsicsMatrix(imgW, imgH, vFov);
+        const targetObj = context.scene.getObjectByName("TargetSpacecraftGroup");
         if (targetObj) {
-          targetObj.updateMatrixWorld(true);
-          const { projected } = projectLandmarksToPixels(cam, targetObj.matrixWorld, imgW, imgH, 0.0);
-          targetLandmarks2D = projected;
-          groundTruthPose = getOpenCvGroundTruthPose(cam, targetObj.matrixWorld);
+          landmarkGeometry = projectLandmarksToPixels(
+            cam,
+            targetObj,
+            imgW,
+            imgH,
+            landmarks3DRef.current
+          );
+          groundTruthPose = getOpenCvGroundTruthPose(cam, targetObj);
         }
       }
 
@@ -231,7 +245,7 @@ function SensorViewer({ sensorData }) {
         fov_mode: "vertical",
         image_size: [imgW, imgH],
         camera_matrix: cameraMatrix,
-        target_landmarks_2d: targetLandmarks2D,
+        landmarks: landmarkGeometry,
         ground_truth_pose: groundTruthPose,
         distance: distanceVal.toFixed(2),
         range_m: distanceVal.toFixed(2),

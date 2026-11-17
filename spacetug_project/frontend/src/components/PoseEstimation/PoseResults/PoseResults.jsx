@@ -118,28 +118,38 @@ function PoseResults({ isLiveStreaming = true }) {
     yaw: [0, 0],
   });
 
-  // Calculate live attitude & translation
+  // Show the solvePnP ESTIMATE when available; otherwise the simulation
+  // ground truth (clearly labelled), never invented numbers.
+  const solved = Boolean(poseResult?.success && poseResult?.position);
+
   const liveState = useMemo(() => {
-    const tx = (targetPosition?.x ?? 5.2) - (chaserPosition?.x ?? 0);
+    if (solved) {
+      const p = poseResult.position;
+      const a = poseResult.attitude || {};
+      return {
+        tx: Number(p.x), ty: Number(p.y), tz: Number(p.z),
+        dist: Number(poseResult.distance_m),
+        rollDeg: Number(a.roll), pitchDeg: Number(a.pitch), yawDeg: Number(a.yaw),
+        rmse: Number(poseResult.reprojection_rmse_px),
+        source: "ESTIMATED (solvePnP)",
+      };
+    }
+
+    const tx = (targetPosition?.x ?? 0) - (chaserPosition?.x ?? 0);
     const ty = (targetPosition?.y ?? 0) - (chaserPosition?.y ?? 0);
-    const tz = (targetPosition?.z ?? 1.24) - (chaserPosition?.z ?? 0);
+    const tz = (targetPosition?.z ?? 0) - (chaserPosition?.z ?? 0);
     const dist = Math.sqrt(tx * tx + ty * ty + tz * tz);
-
-    const quat = targetQuaternion
-      ? targetQuaternion.clone()
-      : new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
-
+    const quat = targetQuaternion ? targetQuaternion.clone() : new THREE.Quaternion();
     const euler = new THREE.Euler().setFromQuaternion(quat, "XYZ");
-    const rollDeg = THREE.MathUtils.radToDeg(euler.x);
-    const pitchDeg = THREE.MathUtils.radToDeg(euler.y);
-    const yawDeg = THREE.MathUtils.radToDeg(euler.z);
-
-    const rmse = poseResult?.reprojection_rmse_px != null
-      ? Number(poseResult.reprojection_rmse_px)
-      : 0.030;
-
-    return { tx, ty, tz, dist, rollDeg, pitchDeg, yawDeg, rmse };
-  }, [chaserPosition, targetPosition, targetQuaternion, poseResult]);
+    return {
+      tx, ty, tz, dist,
+      rollDeg: THREE.MathUtils.radToDeg(euler.x),
+      pitchDeg: THREE.MathUtils.radToDeg(euler.y),
+      yawDeg: THREE.MathUtils.radToDeg(euler.z),
+      rmse: null,
+      source: "GROUND TRUTH (SIMULATION, WORLD FRAME)",
+    };
+  }, [solved, chaserPosition, targetPosition, targetQuaternion, poseResult]);
 
   // Frozen state for STANDBY mode
   const frozenStateRef = useRef(null);
@@ -168,7 +178,7 @@ function PoseResults({ isLiveStreaming = true }) {
       {/* ======================================================== */}
       <div className="results-card position-gauges-card">
         <div className="card-header-bar">
-          <span className="header-badge-tag">COORDINATE TRANSFORMATION (EULER)</span>
+          <span className="header-badge-tag">POSITION · {current.source}</span>
           <span className="header-range-pill">R = {formatValue(current.dist, 2)} m</span>
         </div>
 
@@ -185,7 +195,7 @@ function PoseResults({ isLiveStreaming = true }) {
       <div className="results-card attitude-stack-card">
         <div className="card-header-bar">
           <span className="header-badge-tag">ATTITUDE ORIENTATION (EULER)</span>
-          <span className="header-subtag">3-AXIS DYNAMICS</span>
+          <span className="header-subtag">{solved ? "CAMERA FRAME" : "WORLD FRAME"}</span>
         </div>
 
         <div className="attitude-cards-list">
@@ -200,7 +210,7 @@ function PoseResults({ isLiveStreaming = true }) {
               <div className="sparkline-row">
                 <MiniSparkline color="#ef4444" trend={history.roll} />
                 <span className="pose-locked-tag">
-                  <FaCheckCircle className="lock-icon" /> Pose Locked
+                  <FaCheckCircle className="lock-icon" /> {solved ? "Estimated" : "Sim truth"}
                 </span>
               </div>
               <div className="axis-progress-bar">
@@ -223,7 +233,7 @@ function PoseResults({ isLiveStreaming = true }) {
               <div className="sparkline-row">
                 <MiniSparkline color="#22c55e" trend={history.pitch} />
                 <span className="pose-locked-tag">
-                  <FaCheckCircle className="lock-icon" /> Pose Locked
+                  <FaCheckCircle className="lock-icon" /> {solved ? "Estimated" : "Sim truth"}
                 </span>
               </div>
               <div className="axis-progress-bar">
@@ -246,7 +256,7 @@ function PoseResults({ isLiveStreaming = true }) {
               <div className="sparkline-row">
                 <MiniSparkline color="#38bdf8" trend={history.yaw} />
                 <span className="pose-locked-tag">
-                  <FaCheckCircle className="lock-icon" /> Pose Locked
+                  <FaCheckCircle className="lock-icon" /> {solved ? "Estimated" : "Sim truth"}
                 </span>
               </div>
               <div className="axis-progress-bar">
@@ -267,10 +277,16 @@ function PoseResults({ isLiveStreaming = true }) {
         <div className="rmse-inner-row">
           <div className="rmse-left-group">
             <span className="rmse-label">Reprojection Error (RMSE):</span>
-            <strong className="rmse-numeric-val">{current.rmse.toFixed(3)} px</strong>
+            <strong className="rmse-numeric-val">{current.rmse != null ? `${current.rmse.toFixed(3)} px` : "-- (no estimate)"}</strong>
           </div>
           <div className="precision-pill-badge">
-            HIGH PRECISION
+            {current.rmse == null
+              ? "NO ESTIMATE"
+              : current.rmse < 1
+              ? "SUB-PIXEL"
+              : current.rmse < 3
+              ? "GOOD FIT"
+              : "HIGH ERROR"}
           </div>
         </div>
       </div>

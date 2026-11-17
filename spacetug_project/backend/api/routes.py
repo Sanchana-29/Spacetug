@@ -79,6 +79,9 @@ class PoseRequest(BaseModel):
     method: Optional[str] = "ITERATIVE"
     use_ransac: Optional[bool] = False
     ground_truth: Optional[dict] = None
+    noise_sigma_px: Optional[float] = 0.0
+    keypoint_source: Optional[str] = "LANDMARKS"
+    sensor_name: Optional[str] = None
     target_id: Optional[str] = "SAT-001"
     frame_id: Optional[str] = None
     mission_id: Optional[str] = None
@@ -585,6 +588,10 @@ def estimate_pose_api(req: PoseRequest):
                     "landmarks_used": result["landmarks_used"],
                     "solve_time_ms": result.get("solve_time_ms"),
                     "errors_vs_gt": result.get("errors_vs_gt"),
+                    "ground_truth": result.get("ground_truth"),
+                    "noise_sigma_px": req.noise_sigma_px,
+                    "keypoint_source": req.keypoint_source,
+                    "sensor_name": req.sensor_name,
                     "fov_degrees": req.fov_degrees,
                     "fov_mode": req.fov_mode
                 }

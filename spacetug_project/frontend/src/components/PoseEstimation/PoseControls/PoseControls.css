@@ -181,3 +181,57 @@
   font-size: 13px;
   filter: drop-shadow(0 0 6px #10b981);
 }
+
+/* ---- Phase 1: real pose controls ---- */
+.noise-control input[type="range"] {
+  width: 90px;
+  accent-color: #38bdf8;
+}
+.noise-value {
+  color: #e2e8f0;
+  font-size: 12px;
+  min-width: 44px;
+}
+.control-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #94a3b8;
+  font-size: 12px;
+  cursor: pointer;
+}
+.estimate-pose-btn {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.estimate-pose-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pose-locked-badge.pose-status-idle {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.45);
+  color: #cbd5e1;
+}
+.pose-locked-badge.pose-status-busy {
+  background: rgba(234, 179, 8, 0.12);
+  border-color: rgba(234, 179, 8, 0.5);
+  color: #facc15;
+}
+.pose-locked-badge.pose-status-fail {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #f87171;
+}
+.pose-locked-badge.pose-status-idle .status-dot,
+.pose-locked-badge.pose-status-busy .status-dot,
+.pose-locked-badge.pose-status-fail .status-dot {
+  color: inherit;
+  filter: none;
+}

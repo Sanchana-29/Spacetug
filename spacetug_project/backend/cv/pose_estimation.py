@@ -22,14 +22,17 @@ def load_target_landmarks():
             print("Warning loading target_pose_landmarks.json:", e)
 
     # Fallback to defaults
+    # Fallback: identical to target_pose_landmarks.json (glTF scene-root frame, model units)
     fallback_dict = {
-        "solar_panel_right_tip": [-0.0044, -0.1416, -0.2182],
-        "solar_panel_left_tip": [0.2078, -0.1301, -0.0870],
-        "solar_panel_top_edge": [0.2120, 0.0652, -0.1293],
-        "chassis_top_front_corner": [0.0121, 0.0629, -0.0251],
-        "chassis_bottom_rear_base": [0.1643, 0.0127, -0.2668],
-        "primary_dish_center": [-0.0075, 0.0027, 0.0119],
-        "optical_lens_center": [-0.0520, 0.0186, 0.0825],
+        "solar_panel_right_tip_upper": [7.8909, 1.0933, 1.6304],
+        "solar_panel_right_tip_lower": [7.7388, -1.3544, 2.0907],
+        "solar_panel_left_tip_upper": [-5.0413, 0.3929, -6.3679],
+        "solar_panel_left_tip_lower": [-5.1934, -2.0548, -5.9076],
+        "antenna_dish_top": [-0.1486, 1.5396, 0.1054],
+        "primary_dish_center": [-0.1299, 0.0459, 0.2036],
+        "optical_lens_center": [-0.5894, 0.2065, 0.9408],
+        "chassis_rear_base": [1.7858, -0.7233, -3.8801],
+        "chassis_side_panel": [2.4542, -0.4254, -1.4473],
     }
     return fallback_dict, 0.08, {"scale_factor": 0.08, "landmarks": []}
 
@@ -272,8 +275,9 @@ def estimate_pose(
         method_upper = str(method).upper()
         pnp_flag = SOLVER_FLAGS.get(method_upper, cv2.SOLVEPNP_ITERATIVE)
 
-        # Estimate rotation and translation
+        # Estimate rotation and translation (timed: solver only)
         inliers = None
+        solve_start = time.perf_counter()
         if use_ransac:
             success, rvec, tvec, inliers = cv2.solvePnPRansac(
                 object_points,
@@ -283,6 +287,27 @@ def estimate_pose(
                 flags=pnp_flag,
                 reprojectionError=3.0,
                 iterationsCount=100,
+            )
+        elif method_upper == "ITERATIVE":
+            # Levenberg-Marquardt needs a good initial guess; without one it can
+            # converge to a wrong local minimum when the 2D points are noisy.
+            # Initialise with the global SQPnP solution, then refine iteratively.
+            ok_init, rvec, tvec = cv2.solvePnP(
+                object_points,
+                image_points_array,
+                camera_matrix,
+                distortion_coeffs,
+                flags=SOLVER_FLAGS["SQPNP"],
+            )
+            success, rvec, tvec = cv2.solvePnP(
+                object_points,
+                image_points_array,
+                camera_matrix,
+                distortion_coeffs,
+                rvec=rvec if ok_init else None,
+                tvec=tvec if ok_init else None,
+                useExtrinsicGuess=bool(ok_init),
+                flags=cv2.SOLVEPNP_ITERATIVE,
             )
         else:
             success, rvec, tvec = cv2.solvePnP(
@@ -299,6 +324,7 @@ def estimate_pose(
                 "message": f"OpenCV solvePnP ({method_upper}) could not estimate the pose.",
             }
 
+        solve_time_ms = round((time.perf_counter() - solve_start) * 1000.0, 3)
         rotation_matrix, _ = cv2.Rodrigues(rvec)
 
         # Reproject the estimated 3D points onto the image
@@ -316,7 +342,7 @@ def estimate_pose(
         )
         reprojection_rmse = float(np.sqrt(np.mean(errors ** 2)))
 
-        solve_time_ms = round((time.perf_counter() - start_time) * 1000.0, 3)
+        total_time_ms = round((time.perf_counter() - start_time) * 1000.0, 3)
 
         position = {
             "x": round(float(tvec[0, 0]), 5),
@@ -336,6 +362,7 @@ def estimate_pose(
 
         # Compare with Ground Truth if provided
         errors_vs_gt = None
+        ground_truth_out = None
         if ground_truth and isinstance(ground_truth, dict):
             gt_pos = ground_truth.get("position")
             gt_rot = ground_truth.get("rotation_matrix") or ground_truth.get("rotation_vector")
@@ -343,6 +370,8 @@ def estimate_pose(
             trans_error = None
             range_error = None
             rot_error = None
+            gt_range = 0.0
+            R_gt = None
 
             if gt_pos and all(k in gt_pos for k in ("x", "y", "z")):
                 gt_vec = np.array([gt_pos["x"], gt_pos["y"], gt_pos["z"]], dtype=np.float64)
@@ -362,8 +391,18 @@ def estimate_pose(
                 if R_gt is not None:
                     rot_error = compute_geodesic_rotation_error(rotation_matrix, R_gt)
 
+            ground_truth_out = {}
+            if gt_pos and all(k in gt_pos for k in ("x", "y", "z")):
+                ground_truth_out["position"] = {k: round(float(gt_pos[k]), 5) for k in ("x", "y", "z")}
+                ground_truth_out["distance_m"] = round(float(np.linalg.norm(gt_vec)), 4)
+            if gt_rot is not None and R_gt is not None:
+                ground_truth_out["attitude"] = rotation_matrix_to_euler(R_gt)
+                ground_truth_out["quaternion"] = rotation_matrix_to_quaternion(R_gt)
+                ground_truth_out["rotation_matrix"] = [[round(float(c), 5) for c in row] for row in R_gt]
+
             errors_vs_gt = {
                 "translation_error_m": round(trans_error, 4) if trans_error is not None else None,
+                "translation_error_pct": round(100.0 * trans_error / gt_range, 3) if (trans_error is not None and gt_range > 0) else None,
                 "range_error_m": round(range_error, 4) if range_error is not None else None,
                 "rotation_error_deg": round(rot_error, 3) if rot_error is not None else None,
             }
@@ -384,8 +423,10 @@ def estimate_pose(
             "reprojected_points_2d": reprojected_dict,
             "inliers_count": len(inliers) if inliers is not None else len(object_points),
             "solve_time_ms": solve_time_ms,
+            "total_time_ms": total_time_ms,
             "coordinate_frame": "opencv_camera",
             "errors_vs_gt": errors_vs_gt,
+            "ground_truth": ground_truth_out if ground_truth else None,
         }
 
     except (ValueError, TypeError, cv2.error) as error:

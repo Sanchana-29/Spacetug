@@ -10,30 +10,7 @@ import Earth from "../../Scene/Earth";
 import StarsField from "../../Scene/StarsField";
 import SatelliteSchematic from "./SatelliteSchematic";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 7 STRUCTURAL LANDMARKS
-//
-// 2D positions are expressed as percentages of the schematic viewBox (1000×440)
-// and are derived directly from the SVG coordinates in SatelliteSchematic.jsx:
-//
-//   KP  ID               SVG anchor             %X        %Y
-//   1   Bus CoM          (500, 220)             50.0%     50.0%
-//   2   Docking Collar   (500, 325)             50.0%     73.9%
-//   3   HGA Dish rim     (500,  88)             50.0%     20.0%
-//   4   Left Wing Root   (305, 220)             30.5%     50.0%
-//   5   Left Wing Tip    ( 48, 220)              4.8%     50.0%
-//   6   Right Wing Root  (695, 220)             69.5%     50.0%
-//   7   Right Wing Tip   (952, 220)             95.2%     50.0%
-// ─────────────────────────────────────────────────────────────────────────────
-const LANDMARKS_2D = [
-  { id: "bus_com",         label: "Bus Center of Mass",   color: "#facc15", x: 50.0, y: 50.0 },
-  { id: "docking_collar",  label: "Docking Collar",        color: "#f97316", x: 50.0, y: 73.9 },
-  { id: "hga_dish",        label: "High-Gain Antenna",     color: "#a78bfa", x: 50.0, y: 20.0 },
-  { id: "left_wing_root",  label: "Left Solar Wing Root",  color: "#22d3ee", x: 30.5, y: 50.0 },
-  { id: "left_tip",        label: "Left Solar Panel Tip",  color: "#00d4ff", x:  4.8, y: 50.0 },
-  { id: "right_wing_root", label: "Right Solar Wing Root", color: "#22d3ee", x: 69.5, y: 50.0 },
-  { id: "right_tip",       label: "Right Solar Panel Tip", color: "#00d4ff", x: 95.2, y: 50.0 },
-];
+
 
 // ─── Coordinate Axis Arrow (upper 3D viewport only) ──────────────────────────
 function AxisVector({ dir, color, length = 2.4, label = "", headLength = 0.35, headWidth = 0.16 }) {
@@ -124,40 +101,35 @@ function PoseViewer({
   feature = "ORB",
   isLiveStreaming = true,
   setIsLiveStreaming,
+  lastImagePoints = null,
 }) {
-  const { poseResult, capturedFrame, liveInferenceData, detectionMode } = useSensor();
-  const { targetQuaternion, missionTime = 0 } = useSimulation();
+  const { poseResult, capturedFrame } = useSensor();
+  const { targetQuaternion } = useSimulation();
 
-  // ── Live orientation from simulation quaternion ───────────────────────────
+  // ── Orientation shown in 3D: solvePnP estimate if available, else simulation truth
   const liveOrientation = useMemo(() => {
-    if (targetQuaternion) {
-      const quat = new THREE.Quaternion(
-        targetQuaternion.x || 0,
-        targetQuaternion.y || 0,
-        targetQuaternion.z || 0,
-        targetQuaternion.w != null ? targetQuaternion.w : 1
-      );
-      const euler = new THREE.Euler().setFromQuaternion(quat, "XYZ");
+    if (poseResult?.success && poseResult?.attitude) {
       return {
-        roll:  THREE.MathUtils.radToDeg(euler.x),
-        pitch: THREE.MathUtils.radToDeg(euler.y),
-        yaw:   THREE.MathUtils.radToDeg(euler.z),
-      };
-    }
-    if (poseResult?.attitude) {
-      return {
-        roll:  Number(poseResult.attitude.roll  || 0),
+        roll: Number(poseResult.attitude.roll || 0),
         pitch: Number(poseResult.attitude.pitch || 0),
-        yaw:   Number(poseResult.attitude.yaw   || 0),
+        yaw: Number(poseResult.attitude.yaw || 0),
       };
     }
-    const t = missionTime * 0.05;
+    const quat = targetQuaternion
+      ? new THREE.Quaternion(
+          targetQuaternion.x || 0,
+          targetQuaternion.y || 0,
+          targetQuaternion.z || 0,
+          targetQuaternion.w != null ? targetQuaternion.w : 1
+        )
+      : new THREE.Quaternion();
+    const euler = new THREE.Euler().setFromQuaternion(quat, "XYZ");
     return {
-      roll:  14.2  + Math.sin(t)       * 3.5,
-      pitch: -8.4  + Math.cos(t * 0.8) * 2.8,
-      yaw:   105.6 + Math.sin(t * 0.5) * 6.0,
+      roll: THREE.MathUtils.radToDeg(euler.x),
+      pitch: THREE.MathUtils.radToDeg(euler.y),
+      yaw: THREE.MathUtils.radToDeg(euler.z),
     };
-  }, [targetQuaternion, poseResult, missionTime]);
+  }, [targetQuaternion, poseResult]);
 
   const frozenRef = useRef(liveOrientation);
   if (isLiveStreaming) frozenRef.current = liveOrientation;
@@ -166,10 +138,17 @@ function PoseViewer({
   const currentPitch = isLiveStreaming ? liveOrientation.pitch : frozenRef.current.pitch;
   const currentYaw   = isLiveStreaming ? liveOrientation.yaw   : frozenRef.current.yaw;
 
-  const isLive = detectionMode === "Live Stream" || isLiveStreaming;
-  const frameSource = isLive
-    ? liveInferenceData?.lastFrameUrl || capturedFrame?.imageData
-    : capturedFrame?.imageData;
+  // ── 2D overlay data (all in image pixel coordinates) ─────────────────────
+  const frameSource = capturedFrame?.imageData || null;
+  const imgW = capturedFrame?.image_size?.[0] || 1280;
+  const imgH = capturedFrame?.image_size?.[1] || 720;
+  const geo = capturedFrame?.landmarks;
+  const solved = Boolean(poseResult?.success);
+  const detected = (solved && poseResult.detected_points_2d) || lastImagePoints || {};
+  const reprojected = (solved && poseResult.reprojected_points_2d) || {};
+  const landmarkIds = geo?.points ? Object.keys(geo.points) : [];
+  const usedCount = Object.keys(detected).length;
+  const markerR = Math.max(4, imgW / 160);
 
   return (
     <div className="pose-viewer-dual-container">
@@ -237,140 +216,78 @@ function PoseViewer({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          LOWER VIEWPORT — PURE 2D OPTICAL KEYPOINT PROJECTION
-          ───────────────────────────────────────────────────────
-          NO WebGL / Three.js / Canvas in this panel.
-          Layers (all plain DOM):
-            0  Starfield + tactical grid  (CSS background)
-            1  2D satellite schematic      (inline SVG via SatelliteSchematic)
-               — OR real sensor frame if capturedFrame is available
-            2  SVG skeleton lines          (connecting the 7 joints)
-            3  Landmark marker divs        (absolutely-positioned by %)
-            4  HUD footer pills
+          LOWER VIEWPORT — 2D KEYPOINTS ON THE CAPTURED FRAME
+          green ring  = 2D point sent to solvePnP (with noise)
+          red cross   = 3D landmark reprojected with the ESTIMATED pose
+          violet dot  = noise-free projection (ground truth)
+          grey ring   = landmark outside the image or occluded (not used)
           ═══════════════════════════════════════════════════════════ */}
       <div className="pose-viewport-lower">
         <div className="viewport-header-row">
           <div className="viewport-title-group">
             <FaCrosshairs className="title-icon-cyan" />
-            <h4>2D OPTICAL KEYPOINT PROJECTION (7/7 LANDMARKS)</h4>
+            <h4>2D KEYPOINTS ({usedCount}/{landmarkIds.length || 9} LANDMARKS USED)</h4>
           </div>
           <span className="badge-auto-projected">
-            <FaCheckCircle /> AUTO-PROJECTED
+            <FaCheckCircle /> {solved ? `RMSE ${Number(poseResult.reprojection_rmse_px).toFixed(3)} px` : "NOT SOLVED"}
           </span>
         </div>
 
         <div className="kp2d-panel">
-
-          {/* ── Layer 0: dark starfield + grid ─────────────────── */}
           <div className="kp2d-bg">
             <div className="kp2d-grid" />
           </div>
 
-          {/* ── Layer 1: 2D image background ───────────────────── */}
           {frameSource ? (
-            /* Real sensor frame when available */
-            <img
-              src={frameSource}
-              alt="Captured sensor frame"
-              className="kp2d-frame-img"
-            />
+            <svg
+              className="kp2d-overlay-svg"
+              viewBox={`0 0 ${imgW} ${imgH}`}
+              preserveAspectRatio="xMidYMid meet"
+            >
+              <image href={frameSource} x="0" y="0" width={imgW} height={imgH} />
+              {landmarkIds.map((id) => {
+                const gtp = geo.points[id];
+                const used = detected[id];
+                const rep = reprojected[id];
+                const unusable = !geo.inImage?.[id] || (!used && geo.occluded?.[id]);
+                return (
+                  <g key={id}>
+                    <title>{id}</title>
+                    {unusable ? (
+                      <circle cx={gtp[0]} cy={gtp[1]} r={markerR} fill="none" stroke="#64748b" strokeDasharray="3 3" strokeWidth={markerR / 3} />
+                    ) : (
+                      <circle cx={gtp[0]} cy={gtp[1]} r={markerR / 2.2} fill="#a78bfa" />
+                    )}
+                    {used && (
+                      <circle cx={used[0]} cy={used[1]} r={markerR * 1.4} fill="none" stroke="#22c55e" strokeWidth={markerR / 3} />
+                    )}
+                    {rep && (
+                      <g stroke="#ef4444" strokeWidth={markerR / 3}>
+                        <line x1={rep[0] - markerR} y1={rep[1] - markerR} x2={rep[0] + markerR} y2={rep[1] + markerR} />
+                        <line x1={rep[0] - markerR} y1={rep[1] + markerR} x2={rep[0] + markerR} y2={rep[1] - markerR} />
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
           ) : (
-            /* Static SVG schematic — the canonical 2D satellite reference */
             <div className="kp2d-schematic">
               <SatelliteSchematic />
+              <div className="kp2d-empty-msg">Capture a frame on the Sensors page to see real keypoints</div>
             </div>
           )}
 
-          {/* ── Layer 2: SVG skeleton connector lines ──────────── */}
-          <svg className="kp2d-skeleton-svg" aria-hidden="true">
-            <defs>
-              <filter id="skelGlow" x="-15%" y="-15%" width="130%" height="130%">
-                <feGaussianBlur stdDeviation="1.5" result="b" />
-                <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-
-            {/* Wing span: left tip — left root — bus — right root — right tip */}
-            <line
-              x1={`${LANDMARKS_2D[4].x}%`} y1={`${LANDMARKS_2D[4].y}%`}
-              x2={`${LANDMARKS_2D[3].x}%`} y2={`${LANDMARKS_2D[3].y}%`}
-              className="skel-line" filter="url(#skelGlow)"
-            />
-            <line
-              x1={`${LANDMARKS_2D[3].x}%`} y1={`${LANDMARKS_2D[3].y}%`}
-              x2={`${LANDMARKS_2D[0].x}%`} y2={`${LANDMARKS_2D[0].y}%`}
-              className="skel-line" filter="url(#skelGlow)"
-            />
-            <line
-              x1={`${LANDMARKS_2D[0].x}%`} y1={`${LANDMARKS_2D[0].y}%`}
-              x2={`${LANDMARKS_2D[5].x}%`} y2={`${LANDMARKS_2D[5].y}%`}
-              className="skel-line" filter="url(#skelGlow)"
-            />
-            <line
-              x1={`${LANDMARKS_2D[5].x}%`} y1={`${LANDMARKS_2D[5].y}%`}
-              x2={`${LANDMARKS_2D[6].x}%`} y2={`${LANDMARKS_2D[6].y}%`}
-              className="skel-line" filter="url(#skelGlow)"
-            />
-
-            {/* Body axis: docking collar — bus CoM — HGA dish */}
-            <line
-              x1={`${LANDMARKS_2D[1].x}%`} y1={`${LANDMARKS_2D[1].y}%`}
-              x2={`${LANDMARKS_2D[0].x}%`} y2={`${LANDMARKS_2D[0].y}%`}
-              className="skel-line skel-axis" filter="url(#skelGlow)"
-            />
-            <line
-              x1={`${LANDMARKS_2D[0].x}%`} y1={`${LANDMARKS_2D[0].y}%`}
-              x2={`${LANDMARKS_2D[2].x}%`} y2={`${LANDMARKS_2D[2].y}%`}
-              className="skel-line skel-axis" filter="url(#skelGlow)"
-            />
-          </svg>
-
-          {/* ── Layer 3: Landmark markers ───────────────────────── */}
-          {LANDMARKS_2D.map((kp, idx) => (
-            <div
-              key={kp.id}
-              className="kp2d-marker"
-              style={{ left: `${kp.x}%`, top: `${kp.y}%` }}
-              title={`KP-${idx + 1}: ${kp.label}`}
-            >
-              {/* Outer pulsing ring */}
-              <div
-                className="kp2d-ring-outer"
-                style={{
-                  borderColor: kp.color,
-                  boxShadow: `0 0 10px ${kp.color}99, inset 0 0 4px ${kp.color}33`,
-                }}
-              />
-              {/* Inner dashed ring */}
-              <div
-                className="kp2d-ring-inner"
-                style={{ borderColor: `${kp.color}bb` }}
-              />
-              {/* Centre dot */}
-              <div
-                className="kp2d-dot"
-                style={{ background: kp.color, boxShadow: `0 0 6px ${kp.color}` }}
-              />
-              {/* Index badge */}
-              <span
-                className="kp2d-badge"
-                style={{ background: kp.color }}
-              >
-                {idx + 1}
-              </span>
-              {/* Tooltip label */}
-              <span className="kp2d-label">{kp.label}</span>
-            </div>
-          ))}
-
-          {/* ── Layer 4: HUD footer ─────────────────────────────── */}
           <div className="kp2d-footer">
-            <span className="hud-pill-auto">7/7 STRUCTURAL JOINTS LOCKED</span>
+            <span className="hud-pill-auto">
+              <span style={{ color: "#22c55e" }}>○ used</span>{" "}
+              <span style={{ color: "#ef4444" }}>✕ reprojected</span>{" "}
+              <span style={{ color: "#a78bfa" }}>● truth</span>
+            </span>
             <span className="hud-pill-algo">
-              OPENCV {algorithm.toUpperCase()} + {feature.toUpperCase()}
+              OPENCV {(poseResult?.method || algorithm).toUpperCase()} · {feature === "LANDMARKS" ? "PROJECTED LANDMARKS" : feature}
             </span>
           </div>
-
         </div>
       </div>
     </div>

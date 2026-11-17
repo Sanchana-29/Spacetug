@@ -673,3 +673,21 @@
   padding: 3px 8px;
   border-radius: 4px;
 }
+
+/* ---- Phase 1: real keypoint overlay ---- */
+.kp2d-overlay-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+}
+.kp2d-empty-msg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 48px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 12px;
+}
