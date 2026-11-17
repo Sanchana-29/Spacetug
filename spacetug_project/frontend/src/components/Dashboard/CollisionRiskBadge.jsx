@@ -13,7 +13,7 @@ function CollisionRiskBadge() {
     <div
       style={{
         position: "absolute",
-        top: "20px",
+        top: "64px",
         right: "20px",
         zIndex: 10,
         background: "#111a2c",
@@ -25,7 +25,7 @@ function CollisionRiskBadge() {
         minWidth: "190px",
         boxShadow: c?.risk_level === "HIGH" ? `0 0 14px ${color}` : "none",
       }}
-      title="From the live perception loop (Sensors page): Kalman-filtered relative motion -> TTC / CPA"
+      title="From the live perception loop (runs in the background on every page): Kalman-filtered relative motion -> TTC / CPA"
     >
       <div style={{ fontSize: "10px", color: "#64748b", letterSpacing: "0.5px" }}>COLLISION RISK</div>
       <div style={{ fontSize: "20px", fontWeight: 800, color }}>{c?.risk_level || (liveActive ? "WAITING" : "OFF")}</div>
@@ -42,7 +42,9 @@ function CollisionRiskBadge() {
           )}
         </div>
       ) : (
-        <div style={{ color: "#64748b" }}>Start Live Perception on the Sensors page</div>
+        <div style={{ color: "#64748b" }}>
+          {liveActive ? "Waiting for the first perception step…" : "Press Play to start the mission (live perception starts with it)"}
+        </div>
       )}
     </div>
   );

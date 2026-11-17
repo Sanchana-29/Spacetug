@@ -1,4 +1,5 @@
 import os
+import time
 import logging
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
@@ -15,12 +16,18 @@ MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "spaceDB")
 
 _client: Optional[MongoClient] = None
 _db = None
+# After a failed connection, wait before trying again, so an offline MongoDB does not
+# add a 2.5 s timeout to every request (e.g. each live perception step).
+_RETRY_AFTER_S = 15.0
+_last_failure = 0.0
 
 def get_database():
     """Returns MongoDB database instance if connected, otherwise None."""
-    global _client, _db
+    global _client, _db, _last_failure
     if _db is not None:
         return _db
+    if time.monotonic() - _last_failure < _RETRY_AFTER_S:
+        return None
 
     try:
         _client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=2500)
@@ -31,6 +38,7 @@ def get_database():
         return _db
     except (ConnectionFailure, ServerSelectionTimeoutError) as exc:
         logger.warning(f"Could not connect to MongoDB at {MONGODB_URI}: {exc}")
+        _last_failure = time.monotonic()
         _client = None
         _db = None
         return None

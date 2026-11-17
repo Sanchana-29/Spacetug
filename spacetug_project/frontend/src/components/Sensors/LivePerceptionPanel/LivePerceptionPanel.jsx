@@ -22,6 +22,7 @@ function LivePerceptionPanel() {
     history,
     lastError,
     resetPerception,
+    libraryViews,
   } = usePerception();
   const { isRunning } = useSimulation();
 
@@ -66,7 +67,12 @@ function LivePerceptionPanel() {
         <label title="Collision safety radius">
           Safety R
           <select value={safetyRadius} onChange={(e) => setSafetyRadius(Number(e.target.value))}>
+            {![1, 1.3, 1.5, 2, 3, 5].includes(Number(safetyRadius)) && (
+              <option value={safetyRadius}>{safetyRadius} m</option>
+            )}
             <option value={1}>1 m</option>
+            <option value={1.3}>1.3 m</option>
+            <option value={1.5}>1.5 m</option>
             <option value={2}>2 m</option>
             <option value={3}>3 m</option>
             <option value={5}>5 m</option>
@@ -76,7 +82,10 @@ function LivePerceptionPanel() {
           Reset
         </button>
         <span className="lpp-meta">
-          {history.length} samples{!isRunning && liveActive ? " · simulation paused (motion needs time to advance)" : ""}
+          {history.length} samples
+          {liveActive ? " · runs on every page" : ""}
+          {libraryViews != null ? ` · ORB/SIFT library ${libraryViews} views` : ""}
+          {!isRunning && liveActive ? " · simulation paused: press Play on the Dashboard" : ""}
           {lastError ? ` · ⚠ ${lastError}` : ""}
         </span>
       </div>

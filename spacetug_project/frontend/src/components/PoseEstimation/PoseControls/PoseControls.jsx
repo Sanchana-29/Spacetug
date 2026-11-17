@@ -146,6 +146,12 @@ function PoseControls({
               Auto-add captures
             </label>
             {libraryMsg && <span className="library-msg">{libraryMsg}</span>}
+            {!libraryMsg && libViews < 5 && (
+              <span className="library-msg">
+                Library is built automatically from the live camera feed (one view every 3 s, up to 20).
+                Wait ~30 s with the simulation running, then estimate.
+              </span>
+            )}
           </div>
         ) : (
         <>

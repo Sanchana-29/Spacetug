@@ -2,7 +2,6 @@ import {
   useState,
   useRef,
   useCallback,
-  useEffect,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaCamera, FaEye, FaCrosshairs, FaCompressArrowsAlt } from "react-icons/fa";
@@ -24,13 +23,9 @@ import {
   getCameraIntrinsicsMatrix,
   projectLandmarksToPixels,
   getOpenCvGroundTruthPose,
-  landmarksFromApi,
-  TARGET_LANDMARKS_3D,
-  grabSensorFrame,
-  buildImagePoints,
 } from "../../../utils/poseGeometry";
-import { getPoseLandmarksApi, perceptionStepApi } from "../../../services/api";
 import { usePerception } from "../../../context/PerceptionContext";
+import { useLivePerceptionLoop, useTargetLandmarks } from "../LivePerceptionRunner/useLivePerceptionLoop";
 
 function SensorViewer({ sensorData }) {
   const {
@@ -48,19 +43,8 @@ function SensorViewer({ sensorData }) {
     isRunning,
     irFloodlight,
     setIrFloodlight,
-    simTimeRef,
   } = useSimulation();
-  const {
-    liveActive,
-    liveRate,
-    liveNoise,
-    safetyRadius,
-    collisionHorizon,
-    sessionId,
-    latest: perceptionLatest,
-    pushStep,
-    setLastError,
-  } = usePerception();
+  const { liveActive, latest: perceptionLatest } = usePerception();
   const navigate = useNavigate();
 
   const [capturing, setCapturing] = useState(false);
@@ -70,83 +54,9 @@ function SensorViewer({ sensorData }) {
   const glContextRef = useRef(null);
   const glContextRightRef = useRef(null);
 
-  // 3D landmark definitions: single source of truth from the backend (fallback: local copy)
-  const landmarks3DRef = useRef(TARGET_LANDMARKS_3D);
-  useEffect(() => {
-    let cancelled = false;
-    getPoseLandmarksApi()
-      .then((d) => {
-        const lm = landmarksFromApi(d);
-        if (!cancelled && lm) landmarks3DRef.current = lm;
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // ── LIVE PERCEPTION LOOP (Phases 3-5) ────────────────────────────────────
-  // Every 1/liveRate s: render the sensor view, send image (YOLO + SORT tracking),
-  // noisy 2D landmarks (solvePnP), ground truth and chaser attitude to the backend,
-  // which returns tracks, pose, Kalman-filtered relative motion and collision risk.
-  const inflightRef = useRef(false);
-  const liveCfgRef = useRef({});
-  useEffect(() => {
-    liveCfgRef.current = {
-      liveNoise,
-      safetyRadius,
-      collisionHorizon,
-      sessionId,
-      missionId: activeMission?.mission_id || null,
-      sensor: selectedSensor,
-    };
-  }, [liveNoise, safetyRadius, collisionHorizon, sessionId, activeMission?.mission_id, selectedSensor]);
-
-  useEffect(() => {
-    if (!liveActive) return undefined;
-    const intervalMs = Math.max(250, Math.round(1000 / (Number(liveRate) || 2)));
-
-    const id = setInterval(async () => {
-      if (inflightRef.current) return; // never queue requests
-      const cfg = liveCfgRef.current;
-      const frame = grabSensorFrame(glContextRef.current, {
-        landmarks3D: landmarks3DRef.current,
-        format: "image/jpeg",
-        quality: 0.85,
-      });
-      if (!frame) return;
-
-      inflightRef.current = true;
-      try {
-        const gt = frame.groundTruthPose;
-        const imagePoints = buildImagePoints(
-          { landmarks: frame.landmarkGeometry },
-          { noiseSigmaPx: cfg.liveNoise, excludeOccluded: true }
-        );
-        const res = await perceptionStepApi({
-          session_id: cfg.sessionId,
-          timestamp: Number(simTimeRef?.current ?? performance.now() / 1000),
-          image: frame.imageData,
-          image_points: imagePoints,
-          image_size: [frame.imgW, frame.imgH],
-          camera_matrix: frame.cameraMatrix,
-          ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
-          camera_rotation_world: frame.cameraRotationWorld,
-          safety_radius_m: cfg.safetyRadius,
-          horizon_s: cfg.collisionHorizon || 60,
-          mission_id: cfg.missionId,
-          sensor_name: cfg.sensor,
-        });
-        pushStep(res, { imageSize: [frame.imgW, frame.imgH] });
-      } catch (e) {
-        setLastError(e?.message || "Perception step failed");
-      } finally {
-        inflightRef.current = false;
-      }
-    }, intervalMs);
-
-    return () => clearInterval(id);
-  }, [liveActive, liveRate, pushStep, setLastError, simTimeRef]);
+  // 3D landmarks + the live perception loop (shared with the background runner)
+  const landmarks3DRef = useTargetLandmarks();
+  useLivePerceptionLoop(glContextRef, landmarks3DRef);
 
   const onGlReady = useCallback((context) => {
     glContextRef.current = context;

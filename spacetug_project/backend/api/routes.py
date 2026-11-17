@@ -124,10 +124,11 @@ class UserSettingsModel(BaseModel):
     # Settings used by the live perception loop and ORB/SIFT identification
     live_rate_fps: Optional[float] = Field(default=2.0, ge=0.5, le=5.0)
     live_noise_px: Optional[float] = Field(default=1.0, ge=0.0, le=5.0)
-    safety_radius_m: Optional[float] = Field(default=2.0, gt=0.0, le=50.0)
+    safety_radius_m: Optional[float] = Field(default=1.0, gt=0.0, le=50.0)
     collision_horizon_s: Optional[float] = Field(default=60.0, gt=0.0, le=3600.0)
     feature_min_inliers: Optional[int] = Field(default=15, ge=6, le=500)
     feature_min_inlier_ratio: Optional[float] = Field(default=0.40, ge=0.0, le=1.0)
+    settings_version: Optional[int] = 2
 
 
 class SimulationSessionModel(BaseModel):
@@ -732,7 +733,7 @@ class PerceptionStepRequest(BaseModel):
     method: str = "ITERATIVE"
     ground_truth: Optional[dict] = None
     camera_rotation_world: Optional[List[List[float]]] = None  # chaser attitude (3x3)
-    safety_radius_m: float = Field(2.0, gt=0, le=100)
+    safety_radius_m: float = Field(1.0, gt=0, le=100)
     horizon_s: float = Field(60.0, gt=0, le=3600)
     mission_id: Optional[str] = None
     sensor_name: Optional[str] = None
@@ -745,7 +746,7 @@ class SessionRequest(BaseModel):
 class CollisionRequest(BaseModel):
     relative_position: List[float]
     relative_velocity: List[float]
-    safety_radius_m: float = Field(2.0, gt=0, le=100)
+    safety_radius_m: float = Field(1.0, gt=0, le=100)
     horizon_s: float = Field(60.0, gt=0, le=3600)
 
 
@@ -895,7 +896,10 @@ def create_mission_log(event: MissionEventModel):
 PERCEPTION_SETTING_DEFAULTS = {
     "live_rate_fps": 2.0,
     "live_noise_px": 1.0,
-    "safety_radius_m": 2.0,
+    # In the simulated rendezvous the camera-to-target range is 0.96-1.28 m. With a 1 m
+    # keep-out sphere the risk is HIGH around closest approach and MEDIUM elsewhere
+    # (the old 2 m default made every frame HIGH).
+    "safety_radius_m": 1.0,
     "collision_horizon_s": 60.0,
     "feature_min_inliers": 15,
     "feature_min_inlier_ratio": 0.40,
@@ -941,11 +945,19 @@ def get_user_settings():
             "preferred_sensor": "RGB-D Camera",
             "active_mission_id": "MSN-DEFAULT-01",
             **PERCEPTION_SETTING_DEFAULTS,
+            "settings_version": 2,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         db.user_settings.insert_one(doc)
     for k, v in PERCEPTION_SETTING_DEFAULTS.items():
         doc.setdefault(k, v)
+    # Settings v2: the old 2 m default safety radius is migrated to the new 1 m default
+    if int(doc.get("settings_version") or 1) < 2:
+        if float(doc.get("safety_radius_m") or 0) == 2.0:
+            doc["safety_radius_m"] = 1.0
+        doc["settings_version"] = 2
+        db.user_settings.update_one({"id": "global_settings"},
+                                    {"$set": {"safety_radius_m": doc["safety_radius_m"], "settings_version": 2}})
     doc["db_connected"] = True
     return serialize_doc(doc)
 

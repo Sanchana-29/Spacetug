@@ -52,9 +52,10 @@ export function SensorProvider({ children }) {
   const [poseResult, setPoseResultState] = useState(null);
   // Phase 2: automatically add every captured frame (with ground-truth pose) to the ORB/SIFT library
   const [autoAddToLibrary, setAutoAddToLibraryState] = useState(
-    () => readStorage("spacetug_auto_add_library", false) === true
+    () => readStorage("spacetug_auto_add_library", true) !== false
   );
   const [libraryVersion, setLibraryVersion] = useState(0);
+  const bumpLibraryVersion = useCallback(() => setLibraryVersion((v) => v + 1), []);
   const setAutoAddToLibrary = useCallback((v) => {
     setAutoAddToLibraryState(Boolean(v));
     writeStorage("spacetug_auto_add_library", Boolean(v));
@@ -332,6 +333,7 @@ export function SensorProvider({ children }) {
     autoAddToLibrary,
     setAutoAddToLibrary,
     libraryVersion,
+    bumpLibraryVersion,
     selectedSensor,
     setSelectedSensor,
     sensorThumbnails,

@@ -10,7 +10,7 @@ const DEFAULTS = {
   confidence_threshold: 0.4,
   live_rate_fps: 2,
   live_noise_px: 1,
-  safety_radius_m: 2.0,
+  safety_radius_m: 1.0,
   collision_horizon_s: 60,
   feature_min_inliers: 15,
   feature_min_inlier_ratio: 0.4,
@@ -138,7 +138,7 @@ function GeneralSettings({ notify }) {
             onChange={p.setLiveNoise}
             hint="Simulated keypoint detection error added before solvePnP."
           />
-          <Slider label="Safety radius" value={current.safety_radius_m} min={0.5} max={10} step={0.5} unit=" m" onChange={p.setSafetyRadius} />
+          <Slider label="Safety radius" value={current.safety_radius_m} min={0.5} max={10} step={0.1} unit=" m" onChange={p.setSafetyRadius} />
           <Slider
             label="Risk time horizon"
             value={current.collision_horizon_s}

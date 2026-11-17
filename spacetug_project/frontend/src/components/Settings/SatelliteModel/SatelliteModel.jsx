@@ -113,7 +113,13 @@ function SatelliteModel() {
           <directionalLight position={[3, 4, 5]} intensity={2.2} />
           <directionalLight position={[-4, -2, -3]} intensity={0.5} />
           <Stars radius={60} depth={30} count={1500} factor={3} fade />
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={
+              <Html center>
+                <span style={{ color: "#94a3b8", fontSize: 12, whiteSpace: "nowrap" }}>Loading SAT-001 model…</span>
+              </Html>
+            }
+          >
             <SatelliteMesh selected={selected} onPick={setSelected} />
           </Suspense>
           <OrbitControls enableDamping autoRotate={autoRotate} autoRotateSpeed={0.8} minDistance={0.6} maxDistance={5} />

@@ -7,6 +7,8 @@ import {
   useCallback,
 } from "react";
 import * as THREE from "three";
+
+const SIM_CLOCK_STORAGE_KEY = "spacetug_sim_clock";
 import {
   ORBIT_RADIUS,
   CHASER_ORBIT_X,
@@ -521,7 +523,20 @@ function SimulationProvider({ children }) {
       separationDistance,
     });
 
-    const elapsed = Number(mission.elapsed_seconds || 0);
+    let elapsed = Number(mission.elapsed_seconds || 0);
+    let running = mission.status === "RUNNING";
+    // After a page refresh, continue from the saved simulation clock of this mission
+    if (!force) {
+      try {
+        const clock = JSON.parse(sessionStorage.getItem(SIM_CLOCK_STORAGE_KEY) || "null");
+        if (clock && clock.missionKey === missionKey && Number.isFinite(Number(clock.t))) {
+          elapsed = Number(clock.t);
+          running = Boolean(clock.running);
+        }
+      } catch {
+        /* no saved clock */
+      }
+    }
     simTimeRef.current = elapsed;
     setMissionTime(elapsed);
 
@@ -536,7 +551,7 @@ function SimulationProvider({ children }) {
       z: distScale,
     });
 
-    setIsRunning(mission.status === "RUNNING");
+    setIsRunning(running);
     setResetKey((prev) => prev + 1);
 
     addMissionEvent(
@@ -545,6 +560,34 @@ function SimulationProvider({ children }) {
       elapsed
     );
   }, [addMissionEvent]);
+
+  // ── Survive a page refresh ────────────────────────────────────────────────
+  // The simulation clock is saved every second; after a reload the active mission is
+  // restored at the same mission time and keeps running (no need to visit the Dashboard).
+  const clockSecond = Math.floor(missionTime);
+  useEffect(() => {
+    const missionKey = loadedMissionIdRef.current;
+    if (!missionKey) return;
+    try {
+      sessionStorage.setItem(
+        SIM_CLOCK_STORAGE_KEY,
+        JSON.stringify({ missionKey, t: simTimeRef.current, running: isRunning })
+      );
+    } catch {
+      /* storage full / disabled: refresh just restarts the clock */
+    }
+  }, [clockSecond, isRunning]);
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("spacecraft_active_mission");
+      const mission = saved ? JSON.parse(saved) : null;
+      if (mission) loadMissionIntoSimulation(mission);
+    } catch {
+      /* nothing saved: the Welcome page starts a mission */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <SimulationContext.Provider

@@ -84,12 +84,15 @@ Open http://localhost:5173
 
 ## Demo flow
 
-1. **Welcome:** start or resume a mission. **Dashboard:** press ▶ Play (the simulation must be running).
-2. **Sensors:** choose a sensor, turn on **IR floodlight** if the target is in shadow, press **▶ START LIVE PERCEPTION**:
-   the satellite gets a green box with a persistent **TRK-01** ID, and the panel shows pose, motion and collision risk live.
+1. **Welcome:** start or resume a mission. The simulation starts running, and **live perception starts with it**
+   (IR floodlight on). It keeps running in the background on every page, and a page refresh continues the same
+   mission time and perception history.
+2. **Sensors:** watch the live loop: the satellite gets a green box with a persistent **TRK-01** ID, and the panel
+   shows pose, motion and collision risk live. Stopping it here keeps it stopped until you start it again.
 3. **Capture Frame → Detection:** YOLOv8n detection on the captured frame.
 4. **Pose Estimation:** *Projected landmarks*: solvePnP with a noise slider, estimated vs ground truth.
-   *ORB / SIFT*: tick **Auto-add captures**, capture 10–15 frames from different angles, then estimate on a new frame
+   *ORB / SIFT*: the reference library is built automatically from the live feed (one view every 3 s, up to 20 views,
+   ~1 minute). Captured frames are also added (Auto-add captures). Then estimate on a new capture
    ("Identified: SAT-001", inliers, match image).
 5. **Telemetry:** range, relative speed, tumbling rate (raw vs Kalman vs truth) and CPA distance.
 6. **Settings:** perception settings, interactive SAT-001 model with labelled parts, and the **Mission report**
@@ -145,11 +148,13 @@ See `backend/results/RESULTS.md` for all tables and `docs/TEST_PLAN.md` for the 
 
 - All images come from the 3D simulator (rendered satellite.glb); the system has not been tested on real space imagery.
 - The landmark pose path uses projected landmarks with simulated pixel noise; the ORB/SIFT path uses real image features on rendered frames.
-- The ORB/SIFT reference library must be built from captured frames (ground-truth pose known in simulation).
+- The ORB/SIFT reference library is built from simulator frames whose ground-truth pose is known.
+- Collision risk uses a 1 m safety radius by default: the simulated camera-to-target range is 0.96–1.28 m, so the
+  risk is HIGH around closest approach and MEDIUM elsewhere (LOW needs a larger separation).
 
 ## Troubleshooting
 
 - **No detections / no track:** the target may be in Earth's shadow; turn on the IR floodlight or use Target view.
-- **Motion and collision show "--":** the simulation is paused; motion needs simulation time to advance.
+- **Motion and collision show "--":** the simulation is paused; press ▶ Play on the Dashboard.
 - **"No pose data in this frame":** the frame was opened from the gallery; capture a new frame on the Sensors page.
 - **MongoDB offline:** `net start MongoDB` (Administrator PowerShell).

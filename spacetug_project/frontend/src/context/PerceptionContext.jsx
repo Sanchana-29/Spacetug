@@ -1,14 +1,27 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { perceptionResetApi, getUserSettings } from "../services/api";
 import { useSimulation } from "./SimulationContext";
 import { useSensor } from "./SensorContext";
+import { useMission } from "./MissionContext";
 
 /**
- * Live perception state (Phases 3-5): the Sensors page runs the loop, every page can
+ * Live perception state (Phases 3-5). The loop runs on the Sensors page, or in an
+ * off-screen background runner on every other page, so it never stops when the user
+ * navigates. It starts automatically when the mission simulation runs; every page can
  * read the latest result and the time history (Telemetry charts, Dashboard risk badge).
  */
 const PerceptionContext = createContext(null);
 const MAX_SAMPLES = 600;
+
+// Live history survives a page refresh (same backend session -> Kalman state continues)
+const PERCEPTION_STORAGE_KEY = "spacetug_perception";
+function readSaved() {
+  try {
+    return JSON.parse(sessionStorage.getItem(PERCEPTION_STORAGE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
 
 const num = (v) => (Number.isFinite(Number(v)) && v !== null ? Number(v) : null);
 
@@ -42,14 +55,33 @@ function toSample(res) {
 }
 
 export function PerceptionProvider({ children }) {
-  const [liveActive, setLiveActive] = useState(false);
+  const [liveActive, setLiveActiveState] = useState(false);
+  const [libraryViews, setLibraryViews] = useState(null);
+  // Once the user stops live perception by hand, it is not auto-started again
+  const userStoppedRef = useRef(false);
+  const setLiveActive = useCallback((v) => {
+    const on = Boolean(v);
+    userStoppedRef.current = !on;
+    setLiveActiveState(on);
+  }, []);
   const [liveRate, setLiveRate] = useState(2); // frames per second
   const [liveNoise, setLiveNoise] = useState(1); // landmark pixel noise sigma
-  const [safetyRadius, setSafetyRadius] = useState(2.0);
+  const [safetyRadius, setSafetyRadius] = useState(1.0);
   const [collisionHorizon, setCollisionHorizon] = useState(60);
   const [featureMinInliers, setFeatureMinInliers] = useState(15);
   const [featureMinRatio, setFeatureMinRatio] = useState(0.4);
-  const { setSimulationSpeed } = useSimulation() || {};
+  const { setSimulationSpeed, isRunning, setIrFloodlight } = useSimulation() || {};
+
+  // Auto-start with the simulation (unless the user stopped it)
+  useEffect(() => {
+    if (isRunning && !userStoppedRef.current) setLiveActiveState(true);
+  }, [isRunning]);
+
+  // The chaser's IR illuminator is switched on while perception runs, so the target
+  // stays visible to the camera during eclipse
+  useEffect(() => {
+    if (liveActive && setIrFloodlight) setIrFloodlight(true);
+  }, [liveActive, setIrFloodlight]);
   const { setConfidenceThreshold } = useSensor() || {};
 
   // Apply the saved settings (spaceDB) once at app start, so they are used everywhere
@@ -74,9 +106,26 @@ export function PerceptionProvider({ children }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [sessionId, setSessionId] = useState(() => `LIVE-${Date.now()}`);
+  const { activeMission } = useMission() || {};
+  const missionIdRef = useRef(readSaved()?.missionId ?? null);
+  const [sessionId, setSessionId] = useState(() => readSaved()?.sessionId || `LIVE-${Date.now()}`);
   const [latest, setLatest] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(() => {
+    const h = readSaved()?.history;
+    return Array.isArray(h) ? h : [];
+  });
+
+  useEffect(() => {
+    if (history.length % 5 !== 0) return; // save every 5 samples
+    try {
+      sessionStorage.setItem(
+        PERCEPTION_STORAGE_KEY,
+        JSON.stringify({ sessionId, history, missionId: missionIdRef.current })
+      );
+    } catch {
+      /* storage full: history is only kept in memory */
+    }
+  }, [history, sessionId]);
   const [lastError, setLastError] = useState(null);
 
   const pushStep = useCallback((res, meta = {}) => {
@@ -97,10 +146,22 @@ export function PerceptionProvider({ children }) {
     setLastError(null);
   }, [sessionId]);
 
+  // A different mission starts a fresh perception session (new tracks, filters, charts)
+  const currentMissionId = activeMission?.mission_id || null;
+  useEffect(() => {
+    if (!currentMissionId) return;
+    const prev = missionIdRef.current;
+    missionIdRef.current = currentMissionId;
+    if (prev && prev !== currentMissionId) resetPerception();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMissionId]);
+
   const value = useMemo(
     () => ({
       liveActive,
       setLiveActive,
+      libraryViews,
+      setLibraryViews,
       liveRate,
       setLiveRate,
       liveNoise,
@@ -123,6 +184,8 @@ export function PerceptionProvider({ children }) {
     }),
     [
       liveActive,
+      setLiveActive,
+      libraryViews,
       liveRate,
       liveNoise,
       safetyRadius,

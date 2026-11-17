@@ -10,10 +10,13 @@ import ProcessingPipelinePage from "../pages/ProcessingPipelinePage";
 import Telemetry from "../pages/Telemetry";
 import MissionSummary from "../pages/MissionSummary";
 import Settings from "../pages/Settings";
+import BackgroundPerception from "../components/Sensors/LivePerceptionRunner/BackgroundPerception";
 
 function AppRoutes() {
   return (
     <BrowserRouter>
+      {/* Keeps live perception running while other pages are open */}
+      <BackgroundPerception />
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/welcome" element={<Welcome />} />
