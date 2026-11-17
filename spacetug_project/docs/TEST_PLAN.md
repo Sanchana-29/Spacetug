@@ -33,6 +33,6 @@ Evidence: automated tests in `backend/tests/` (`python -m pytest`), the evaluati
 |---|---|
 | `test_pose_estimation.py` | solvePnP recovers exact pose (3 solvers), noise behaviour, intrinsics, landmarks on the mesh, frontend/backend landmark consistency |
 | `test_features.py` | keypoint lifting to 3D, reference library, ORB/SIFT pose on new views, empty-frame rejection, leave-one-out |
-| `test_tracking_motion_collision.py` | SORT ID stability, false positives, two targets, angular velocity, Kalman noise reduction, TTC/CPA hand-checked cases, perception step |
+| `test_tracking_motion_collision.py` | SORT ID stability, false positives, two targets, angular velocity, Kalman noise reduction, Kalman outlier rejection, TTC/CPA hand-checked cases, perception step, single-target tracking |
 | `test_mission_summary.py` | mission report aggregation |
 | `test_api_pose.py` | API endpoints (landmarks, pose, feature library, collision, perception step) |

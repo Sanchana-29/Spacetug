@@ -39,11 +39,11 @@ All results (detections, poses, tracks, perception steps, mission events, settin
 | Virtual sensor module | RGB-D, Stereo (left/right), Thermal, LiDAR views; frame capture with camera intrinsics and ground-truth pose | ✅ Working |
 | Image preprocessing | OpenCV resize, CLAHE/contrast, denoise, blur, sharpen, Canny edges | ✅ Working |
 | Object detection | YOLOv8n trained on 200 rendered images (P 95.2 %, R 88.4 %, mAP@50 96.9 %) | ✅ Working |
-| Object tracking | SORT: box Kalman filter + IoU + Hungarian matching, persistent `TRK-xx` IDs, ID-switch metrics | ✅ Working (live perception) |
+| Object tracking | SORT: box Kalman filter + IoU + Hungarian matching, persistent `TRK-xx` IDs, ID-switch metrics; single-target mode (only the most confident detection is tracked, so background clutter such as the Earth does not spawn tracks) | ✅ Working (live perception) |
 | Target selection | Operator selects / locks SAT-001 in the 3D scene and dashboard | ✅ Working |
 | Feature extraction & identification | ORB and SIFT; reference keypoints lifted to 3D on satellite.glb; multi-view ratio test; PnP RANSAC; identification by inliers + inlier ratio | ✅ Working |
 | 6-DoF pose estimation | solvePnP (ITERATIVE with SQPnP initialisation, EPnP, SQPnP) on 9 mesh-vertex landmarks; errors vs ground truth | ✅ Working |
-| Relative motion estimation | Poses rotated to a non-rotating frame using the chaser attitude; constant-velocity Kalman filter; angular rate from consecutive attitudes | ✅ Working |
+| Relative motion estimation | Poses rotated to a non-rotating frame using the chaser attitude; constant-velocity Kalman filter with innovation gating (a single failed PnP solution is rejected); angular rate from consecutive attitudes | ✅ Working |
 | Collision risk | Closing speed, TTC, time and distance of closest approach, risk levels, HIGH-risk mission log warnings | ✅ Working |
 | Mission dashboard | 3D dashboard, telemetry charts (estimated vs Kalman vs truth), collision badge | ✅ Working |
 | Data management | MongoDB persistence, mission summary report, PDF / JSON / CSV exports | ✅ Working |

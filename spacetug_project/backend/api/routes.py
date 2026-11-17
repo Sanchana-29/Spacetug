@@ -737,6 +737,7 @@ class PerceptionStepRequest(BaseModel):
     horizon_s: float = Field(60.0, gt=0, le=3600)
     mission_id: Optional[str] = None
     sensor_name: Optional[str] = None
+    max_targets: Optional[int] = Field(1, ge=1, le=10)  # None = track every detection
 
 
 class SessionRequest(BaseModel):
@@ -766,7 +767,8 @@ def perception_step(req: PerceptionStepRequest):
             conf=req.confidence, image_points=req.image_points, image_size=req.image_size,
             camera_matrix=req.camera_matrix, method=req.method, ground_truth=req.ground_truth,
             camera_rotation_world=req.camera_rotation_world,
-            safety_radius_m=req.safety_radius_m, horizon_s=req.horizon_s)
+            safety_radius_m=req.safety_radius_m, horizon_s=req.horizon_s,
+            max_targets=req.max_targets)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Perception step error: {e}")
 

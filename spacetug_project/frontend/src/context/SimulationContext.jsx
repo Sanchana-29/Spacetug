@@ -120,6 +120,7 @@ function SimulationProvider({ children }) {
   const [telemetryUpdateRate, setTelemetryUpdateRate] = useState(10);
   const lastTelemetrySampleTimeRef = useRef(null);
   const previousRelativePositionRef = useRef(null);
+  const sampleTelemetryRef = useRef(null);
 
   const addMissionEvent = useCallback(
     (message, type = "INFO", time = simTimeRef.current, meta = {}) => {
@@ -314,6 +315,7 @@ function SimulationProvider({ children }) {
         setTargetQuaternion(targetQuatRef.current.clone());
         setAngularVelocity(angVelRef.current);
         setTumblingRate(tumblingRateRef.current);
+        sampleTelemetryRef.current?.(t, nextChaserVec, nextTargetVec, targetQuatRef.current);
       }
 
       animId = requestAnimationFrame(tick);
@@ -326,16 +328,22 @@ function SimulationProvider({ children }) {
 
   /*
    * TELEMETRY SAMPLING
-   * Samples the latest simulation state at the selected rate.
+   * Samples the simulation state at the selected rate. Called from the
+   * animation loop (not from an effect), so a new sample never triggers
+   * a cascade of effect -> setState -> render on every simulation tick.
    */
+  const telemetryUpdateRateRef = useRef(telemetryUpdateRate);
+  const addMissionEventRef = useRef(addMissionEvent);
   useEffect(() => {
-    if (resetKey > 0 && missionTime === 0) return;
-    if (!isRunning) return;
+    telemetryUpdateRateRef.current = telemetryUpdateRate;
+    addMissionEventRef.current = addMissionEvent;
+  }, [telemetryUpdateRate, addMissionEvent]);
 
-    const interval = 1 / telemetryUpdateRate;
+  const sampleTelemetry = (t, chaserPosition, targetPosition, targetQuaternion) => {
+    const interval = 1 / telemetryUpdateRateRef.current;
     const lastTime = lastTelemetrySampleTimeRef.current;
 
-    if (lastTime !== null && missionTime - lastTime < interval) {
+    if (lastTime !== null && t - lastTime < interval) {
       return;
     }
 
@@ -350,7 +358,7 @@ function SimulationProvider({ children }) {
     const previousPosition = previousRelativePositionRef.current;
 
     if (previousPosition && lastTime !== null) {
-      const dt = missionTime - lastTime;
+      const dt = t - lastTime;
 
       if (dt > 0) {
         const vx = (relativePosition.x - previousPosition.x) / dt;
@@ -367,7 +375,7 @@ function SimulationProvider({ children }) {
     );
 
     const sample = {
-      time: Number(missionTime.toFixed(3)),
+      time: Number(t.toFixed(3)),
       distance,
       velocity: relativeVelocity,
       roll: THREE.MathUtils.radToDeg(euler.x),
@@ -381,19 +389,19 @@ function SimulationProvider({ children }) {
     const currentTumble = tumblingRateRef.current;
     if (!alertStateRef.current.tumblingHigh && currentTumble >= 0.05) {
       alertStateRef.current.tumblingHigh = true;
-      addMissionEvent(`Tumbling rate exceeds 0.05 rad/s (${currentTumble.toFixed(3)} rad/s)`, "WARNING");
+      addMissionEventRef.current(`Tumbling rate exceeds 0.05 rad/s (${currentTumble.toFixed(3)} rad/s)`, "WARNING");
     } else if (alertStateRef.current.tumblingHigh && currentTumble < 0.045) {
       alertStateRef.current.tumblingHigh = false;
-      addMissionEvent(`Tumbling rate nominal recovered (${currentTumble.toFixed(3)} rad/s)`, "SUCCESS");
+      addMissionEventRef.current(`Tumbling rate nominal recovered (${currentTumble.toFixed(3)} rad/s)`, "SUCCESS");
     }
 
     // 2. Safe distance: warn below 2.0m, clear above 2.2m
     if (!alertStateRef.current.rangeLow && distance < 2.0) {
       alertStateRef.current.rangeLow = true;
-      addMissionEvent(`Range below safe distance (${distance.toFixed(2)} m)`, "WARNING");
+      addMissionEventRef.current(`Range below safe distance (${distance.toFixed(2)} m)`, "WARNING");
     } else if (alertStateRef.current.rangeLow && distance >= 2.2) {
       alertStateRef.current.rangeLow = false;
-      addMissionEvent(`Range recovered to safe distance (${distance.toFixed(2)} m)`, "SUCCESS");
+      addMissionEventRef.current(`Range recovered to safe distance (${distance.toFixed(2)} m)`, "SUCCESS");
     }
 
     if (
@@ -407,18 +415,13 @@ function SimulationProvider({ children }) {
         [...previous, sample].slice(-MAX_TELEMETRY_SAMPLES)
       );
 
-      lastTelemetrySampleTimeRef.current = missionTime;
+      lastTelemetrySampleTimeRef.current = t;
       previousRelativePositionRef.current = relativePosition;
     }
-  }, [
-    missionTime,
-    chaserPosition,
-    targetPosition,
-    targetQuaternion,
-    isRunning,
-    telemetryUpdateRate,
-    resetKey,
-  ]);
+  };
+  useEffect(() => {
+    sampleTelemetryRef.current = sampleTelemetry;
+  });
 
   /*
    * RESET SIMULATION AND TELEMETRY HISTORY.
@@ -525,6 +528,7 @@ function SimulationProvider({ children }) {
 
     let elapsed = Number(mission.elapsed_seconds || 0);
     let running = mission.status === "RUNNING";
+    let restoredQuat = null;
     // After a page refresh, continue from the saved simulation clock of this mission
     if (!force) {
       try {
@@ -532,6 +536,11 @@ function SimulationProvider({ children }) {
         if (clock && clock.missionKey === missionKey && Number.isFinite(Number(clock.t))) {
           elapsed = Number(clock.t);
           running = Boolean(clock.running);
+          // Restore the tumbling attitude too, so the target does not jump back to its
+          // initial orientation (which would show up as a fake tumble-rate spike)
+          if (Array.isArray(clock.q) && clock.q.length === 4 && clock.q.every(Number.isFinite)) {
+            restoredQuat = new THREE.Quaternion().fromArray(clock.q).normalize();
+          }
         }
       } catch {
         /* no saved clock */
@@ -539,6 +548,10 @@ function SimulationProvider({ children }) {
     }
     simTimeRef.current = elapsed;
     setMissionTime(elapsed);
+    if (restoredQuat) {
+      targetQuatRef.current.copy(restoredQuat);
+      setTargetQuaternion(restoredQuat.clone());
+    }
 
     const distScale = Math.max(0.6, (separationDistance / 15) * 1.24);
     chaserPosRef.current.set(INITIAL_CHASER_POSITION.x, INITIAL_CHASER_POSITION.y, INITIAL_CHASER_POSITION.z);
@@ -571,7 +584,12 @@ function SimulationProvider({ children }) {
     try {
       sessionStorage.setItem(
         SIM_CLOCK_STORAGE_KEY,
-        JSON.stringify({ missionKey, t: simTimeRef.current, running: isRunning })
+        JSON.stringify({
+          missionKey,
+          t: simTimeRef.current,
+          running: isRunning,
+          q: targetQuatRef.current.toArray(),
+        })
       );
     } catch {
       /* storage full / disabled: refresh just restarts the clock */

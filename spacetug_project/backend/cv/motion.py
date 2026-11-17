@@ -47,11 +47,20 @@ def angular_velocity(R_prev: np.ndarray, R_curr: np.ndarray, dt: float) -> np.nd
     return rvec.reshape(3) / dt
 
 
+# Innovation gate (normalised innovation squared, 3 DOF). 40 ~ a 6-sigma jump: only gross
+# PnP failures are rejected, so ordinary landmark noise (0.5-2 px) is never gated.
+GATE_CHI2_3DOF = 40.0
+# After this many rejected measurements in a row the next one is accepted again
+MAX_CONSECUTIVE_REJECTS = 3
+
+
 class TranslationKF:
     def __init__(self, accel_noise: float = 0.02):
         self.q = accel_noise  # m/s^2 (white acceleration noise)
         self.x = None
         self.P = None
+        self.rejected = 0
+        self.last_rejected = False
 
     def step(self, z: np.ndarray, dt: float, meas_sigma: float):
         if self.x is None:
@@ -67,8 +76,18 @@ class TranslationKF:
         H = np.hstack([np.eye(3), np.zeros((3, 3))])
         R = np.eye(3) * meas_sigma ** 2
         S = H @ self.P @ H.T + R
-        K = self.P @ H.T @ np.linalg.inv(S)
-        self.x = self.x + K @ (z - H @ self.x)
+        y = z - H @ self.x
+        S_inv = np.linalg.inv(S)
+        # Innovation gate: a single bad PnP solution is rejected (predict only), but a
+        # persistent change is accepted after a few frames so real manoeuvres are followed.
+        if float(y @ S_inv @ y) > GATE_CHI2_3DOF and self.rejected < MAX_CONSECUTIVE_REJECTS:
+            self.rejected += 1
+            self.last_rejected = True
+            return self.x.copy()
+        self.rejected = 0
+        self.last_rejected = False
+        K = self.P @ H.T @ S_inv
+        self.x = self.x + K @ y
         self.P = (np.eye(6) - K @ H) @ self.P
         return self.x.copy()
 
@@ -80,6 +99,8 @@ class RateKF:
         self.q = rate_noise  # rad/s^2
         self.x = None
         self.P = None
+        self.rejected = 0
+        self.last_rejected = False
 
     def step(self, z: np.ndarray, dt: float, meas_sigma: float):
         if self.x is None:
@@ -88,8 +109,16 @@ class RateKF:
             return self.x.copy()
         self.P = self.P + np.eye(3) * (self.q * dt) ** 2
         S = self.P + np.eye(3) * meas_sigma ** 2
-        K = self.P @ np.linalg.inv(S)
-        self.x = self.x + K @ (z - self.x)
+        y = z - self.x
+        S_inv = np.linalg.inv(S)
+        if float(y @ S_inv @ y) > GATE_CHI2_3DOF and self.rejected < MAX_CONSECUTIVE_REJECTS:
+            self.rejected += 1
+            self.last_rejected = True
+            return self.x.copy()
+        self.rejected = 0
+        self.last_rejected = False
+        K = self.P @ S_inv
+        self.x = self.x + K @ y
         self.P = (np.eye(3) - K) @ self.P
         return self.x.copy()
 
@@ -150,5 +179,6 @@ class MotionEstimator:
                 "closing_speed_filtered_mps": float(-(r_f @ v_f) / max(np.linalg.norm(r_f), 1e-9)),
                 "angular_velocity_filtered": w_f.tolist(),
                 "tumbling_rate_filtered_dps": math.degrees(float(np.linalg.norm(w_f))),
+                "outlier_rejected": bool(self.kf_t.last_rejected or self.kf_w.last_rejected),
             })
         return res

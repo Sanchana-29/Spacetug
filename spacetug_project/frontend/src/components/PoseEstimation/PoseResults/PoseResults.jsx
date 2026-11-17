@@ -158,18 +158,28 @@ function PoseResults({ isLiveStreaming = true }) {
   }
   const current = isLiveStreaming ? liveState : (frozenStateRef.current || liveState);
 
-  // Update rolling history buffer at 10 Hz when live streaming
+  // Update rolling history buffer at 10 Hz when live streaming.
+  // A timer (not an effect on every simulation tick) so new samples never
+  // cascade into effect -> setState -> render loops.
+  const currentRef = useRef(current);
   useEffect(() => {
-    if (!isLiveStreaming) return;
-
-    setHistory((prev) => {
-      const maxSamples = 25;
-      const nextRoll = [...prev.roll, current.rollDeg].slice(-maxSamples);
-      const nextPitch = [...prev.pitch, current.pitchDeg].slice(-maxSamples);
-      const nextYaw = [...prev.yaw, current.yawDeg].slice(-maxSamples);
-      return { roll: nextRoll, pitch: nextPitch, yaw: nextYaw };
-    });
-  }, [missionTime, isLiveStreaming, current.rollDeg, current.pitchDeg, current.yawDeg]);
+    currentRef.current = current;
+  });
+  useEffect(() => {
+    if (!isLiveStreaming) return undefined;
+    const id = setInterval(() => {
+      const c = currentRef.current;
+      if (!c) return;
+      setHistory((prev) => {
+        const maxSamples = 25;
+        const nextRoll = [...prev.roll, c.rollDeg].slice(-maxSamples);
+        const nextPitch = [...prev.pitch, c.pitchDeg].slice(-maxSamples);
+        const nextYaw = [...prev.yaw, c.yawDeg].slice(-maxSamples);
+        return { roll: nextRoll, pitch: nextPitch, yaw: nextYaw };
+      });
+    }, 100);
+    return () => clearInterval(id);
+  }, [isLiveStreaming]);
 
   return (
     <div className="pose-results-container">

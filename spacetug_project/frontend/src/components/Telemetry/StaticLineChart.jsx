@@ -1,6 +1,9 @@
 
 import React from "react";
 
+// null / undefined / "" mean "no value" (Number(null) would plot as 0)
+const isNum = (v) => v !== null && v !== undefined && v !== "" && Number.isFinite(Number(v));
+
 export default function StaticLineChart({
   data = [],
   yKey,
@@ -17,14 +20,14 @@ export default function StaticLineChart({
   const innerHeight = height - padding.top - padding.bottom;
 
   const validData = data.filter((item) => {
-    if (!Number.isFinite(Number(item.time))) return false;
+    if (!isNum(item.time)) return false;
 
     const keys = lines?.length
       ? lines.map((line) => line.key)
       : [yKey];
 
     return keys.some(
-      (key) => key && Number.isFinite(Number(item[key]))
+      (key) => key && isNum(item[key])
     );
   });
 
@@ -34,8 +37,8 @@ export default function StaticLineChart({
 
   const values = validData.flatMap((item) =>
     series
+      .filter((line) => isNum(item[line.key]))
       .map((line) => Number(item[line.key]))
-      .filter(Number.isFinite)
   );
 
   if (validData.length === 0 || values.length === 0) {
@@ -91,7 +94,7 @@ export default function StaticLineChart({
 
   const renderLine = (line) => {
     const points = validData
-      .filter((item) => Number.isFinite(Number(item[line.key])))
+      .filter((item) => isNum(item[line.key]))
       .map((item) => ({
         x: xScale(Number(item.time)),
         y: yScale(Number(item[line.key])),

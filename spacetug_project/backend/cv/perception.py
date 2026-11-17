@@ -58,7 +58,8 @@ class PerceptionSession:
     def step(self, *, timestamp: float, image_bgr=None, detect_fn=None, conf: float = 0.4,
              image_points=None, image_size=None, camera_matrix=None, method: str = "ITERATIVE",
              ground_truth: Optional[dict] = None, camera_rotation_world=None,
-             safety_radius_m: float = 2.0, horizon_s: float = 60.0) -> dict:
+             safety_radius_m: float = 2.0, horizon_s: float = 60.0,
+             max_targets: Optional[int] = 1) -> dict:
         self.steps += 1
         t0 = time.perf_counter()
         out = {"session_id": self.session_id, "step": self.steps, "timestamp": float(timestamp)}
@@ -72,9 +73,15 @@ class PerceptionSession:
                 b = d["bounding_box"]
                 dets.append({"bbox": [b["x"], b["y"], b["x"] + b["width"], b["y"] + b["height"]],
                              "confidence": d["confidence"], "class_name": d.get("class_name")})
+            raw_count = len(dets)
+            # Single-target mission (SAT-001): only the most confident detection is tracked.
+            # Stops background clutter (e.g. Earth's limb) from spawning extra tracks.
+            if max_targets:
+                dets = sorted(dets, key=lambda d: d["confidence"], reverse=True)[:max_targets]
             tracks = self.tracker.update(dets)
             out["tracking"] = {
                 "detections": len(dets),
+                "raw_detections": raw_count,
                 "tracks": tracks,
                 "detection_time_ms": round((time.perf_counter() - td) * 1000.0, 1),
                 **self.tracker.metrics(),

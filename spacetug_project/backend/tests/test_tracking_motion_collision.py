@@ -199,3 +199,51 @@ def test_motion_filter_restarts_when_time_goes_backwards():
     assert res["ready"] is False
     res = m.update(0.5, R, [0, 0, 4.95])
     assert res["ready"] is True and res["speed_raw_mps"] == pytest.approx(0.1)
+
+
+def test_perception_single_target_ignores_background_clutter():
+    """Single-target mode: only the most confident detection is tracked (e.g. not Earth)."""
+    from cv.perception import PerceptionSession
+
+    def fake_detect(_img, conf=0.4):
+        return {"detections": [
+            {"bounding_box": {"x": 400, "y": 200, "width": 220, "height": 160}, "confidence": 0.93,
+             "class_name": "satellite"},
+            {"bounding_box": {"x": 10, "y": 10, "width": 300, "height": 500}, "confidence": 0.62,
+             "class_name": "satellite"},
+        ]}
+
+    img = np.zeros((540, 960, 3), np.uint8)
+    single = PerceptionSession("single")
+    multi = PerceptionSession("multi")
+    for k in range(6):
+        out_s = single.step(timestamp=k * 0.5, image_bgr=img, detect_fn=fake_detect)
+        out_m = multi.step(timestamp=k * 0.5, image_bgr=img, detect_fn=fake_detect, max_targets=None)
+    trk = out_s["tracking"]
+    assert trk["raw_detections"] == 2 and trk["detections"] == 1
+    assert len(trk["tracks"]) == 1 and trk["tracks"][0]["confidence"] == 0.93
+    assert len(out_m["tracking"]["tracks"]) == 2
+
+
+def test_kalman_rejects_single_bad_pose():
+    """One wrong PnP solution must not pull the filtered range / speed / tumble off."""
+    from cv.motion import MotionEstimator
+
+    est = MotionEstimator(filtered=True)
+    w = np.array([0.05, -0.03, 0.02])  # rad/s
+    out = None
+    for k in range(40):
+        t = k * 0.5
+        R = cv2.Rodrigues(w * t)[0]
+        pos = np.array([0.0, 0.0, 1.0 + 0.01 * t])
+        if k == 25:  # outlier: 12 cm range error and 20 deg attitude error
+            pos = pos + np.array([0.02, -0.03, 0.12])
+            R = cv2.Rodrigues(np.array([0.35, 0.0, 0.0]))[0] @ R
+        out = est.update(t, R, pos)
+        if k in (25, 26):
+            assert out["outlier_rejected"]
+            assert abs(out["range_filtered_m"] - (1.0 + 0.01 * t)) < 0.01
+            assert out["speed_filtered_mps"] < 0.03
+            assert out["tumbling_rate_filtered_dps"] < 6.0
+    assert abs(out["speed_filtered_mps"] - 0.01) < 0.005
+    assert abs(out["tumbling_rate_filtered_dps"] - np.degrees(np.linalg.norm(w))) < 0.5
