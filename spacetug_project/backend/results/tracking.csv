@@ -1,0 +1,7 @@
+miss_rate_pct,false_pos_rate_pct,frames,frames_with_detection,frames_tracked,id_switches,id_consistency_pct,primary_track
+0,0,400,400,399,0,100.0,TRK-01
+0,5,400,400,399,0,100.0,TRK-01
+10,0,400,358,357,0,100.0,TRK-01
+10,5,400,358,357,0,100.0,TRK-01
+30,0,400,293,292,0,100.0,TRK-01
+30,5,400,271,270,0,100.0,TRK-01

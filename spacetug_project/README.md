@@ -1,95 +1,155 @@
-# Spacecraft Perception and Pose Estimation Web Application
+# Spacecraft Perception and Pose Estimation Using Computer Vision
 
-A full-stack computer vision and 3D simulation system for spacecraft relative navigation, autonomous proximity operations, and pose estimation.
+A full-stack simulation and computer-vision system for spacecraft proximity operations. A servicer
+("chaser") spacecraft observes a tumbling target satellite (**SAT-001**) with four virtual sensors,
+detects and tracks it, estimates its 6-DoF pose, filters its relative motion and predicts collision risk.
+Every estimate is compared with the exact simulation ground truth.
 
----
-
-## 🛰 System Architecture
-
-- **Frontend**: React 18, Vite, Three.js, React Three Fiber (R3F), CSS Design System.
-- **Backend**: FastAPI, OpenCV, YOLOv8 (`ultralytics`), SolvePnP algorithm, Pydantic v2.
-- **Database**: Local MongoDB service (`spaceDB` database).
-- **Computer Vision Pipeline**:
-  `Sensor Frame Acquisition -> OpenCV Preprocessing -> YOLOv8n Satellite Detection -> 2D/3D Landmark SolvePnP -> 6-DoF Pose (X,Y,Z + Roll/Pitch/Yaw) -> MongoDB Persistence`
+- **Frontend:** React 19, Vite, Three.js / React Three Fiber
+- **Backend:** FastAPI, Pydantic v2, OpenCV, Ultralytics YOLOv8n, NumPy/SciPy
+- **Database:** MongoDB (`spaceDB`)
 
 ---
 
-## 📋 Prerequisites & Local Setup
+## Perception pipeline
 
-### 1. MongoDB Service Verification (Windows)
-
-Ensure MongoDB Server is installed and running as a Windows service:
-
-1. Open PowerShell as Administrator or regular user:
-   ```powershell
-   Get-Service -Name *mongo*
-   ```
-2. If `Status` is not `Running`, start the service:
-   ```powershell
-   Start-Service MongoDB
-   ```
-3. Test connection via port 27017:
-   ```powershell
-   Test-NetConnection -ComputerName 127.0.0.1 -Port 27017
-   ```
-
-The application automatically connects to `mongodb://localhost:27017` and creates the `spaceDB` database with collections:
-- `targets` (Pre-seeded with target `SAT-001`)
-- `detection_results` (YOLO inference frames and bounding boxes)
-- `pose_estimates` (6-DoF position and attitude records)
-- `simulation_sessions` (Orbit simulation run summaries)
-- `activity_logs` (System audit events)
-- `user_settings` (Persistent theme and processing thresholds)
-
----
-
-## 🚀 Exact Commands to Start the Application
-
-### 1. Start the Backend API (FastAPI)
-
-In a PowerShell terminal:
-
-```powershell
-cd c:\Users\91822\OneDrive\Desktop\Spacetug\spacetug_project\backend
-& .\yolo_env\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+Virtual sensors (RGB-D, Stereo, Thermal, LiDAR)
+   └─► frame capture ─► OpenCV preprocessing ─► YOLOv8n detection ─► SORT tracking (persistent TRK IDs)
+                                                        │
+              ┌─────────────────────────────────────────┴───────────────────────────┐
+     2D landmarks + solvePnP                                   ORB / SIFT features matched to a
+     (ITERATIVE / EPnP / SQPnP)                                reference library + PnP RANSAC
+              └──────────────────────► 6-DoF pose (R, t) ◄────────────── target identification
+                                              │
+              chaser attitude ─► non-rotating frame ─► Kalman filter ─► relative velocity, tumbling rate
+                                              │
+                                   TTC / CPA ─► collision risk LOW / MEDIUM / HIGH ─► mission log
 ```
 
-- **Health Check**: [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health)
-- **Interactive OpenAPI Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+All results (detections, poses, tracks, perception steps, mission events, settings) are stored in MongoDB.
 
-### 2. Start the Frontend (Vite + React)
+---
 
-In a second PowerShell terminal:
+## Features and status
 
+| Module | Implementation | Status |
+|---|---|---|
+| Virtual space environment | Three.js scene: chaser, SAT-001, Earth, orbit propagation, tumbling target, play/pause/reset/speed | ✅ Working |
+| Virtual sensor module | RGB-D, Stereo (left/right), Thermal, LiDAR views; frame capture with camera intrinsics and ground-truth pose | ✅ Working |
+| Image preprocessing | OpenCV resize, CLAHE/contrast, denoise, blur, sharpen, Canny edges | ✅ Working |
+| Object detection | YOLOv8n trained on 200 rendered images (P 95.2 %, R 88.4 %, mAP@50 96.9 %) | ✅ Working |
+| Object tracking | SORT: box Kalman filter + IoU + Hungarian matching, persistent `TRK-xx` IDs, ID-switch metrics | ✅ Working (live perception) |
+| Target selection | Operator selects / locks SAT-001 in the 3D scene and dashboard | ✅ Working |
+| Feature extraction & identification | ORB and SIFT; reference keypoints lifted to 3D on satellite.glb; multi-view ratio test; PnP RANSAC; identification by inliers + inlier ratio | ✅ Working |
+| 6-DoF pose estimation | solvePnP (ITERATIVE with SQPnP initialisation, EPnP, SQPnP) on 9 mesh-vertex landmarks; errors vs ground truth | ✅ Working |
+| Relative motion estimation | Poses rotated to a non-rotating frame using the chaser attitude; constant-velocity Kalman filter; angular rate from consecutive attitudes | ✅ Working |
+| Collision risk | Closing speed, TTC, time and distance of closest approach, risk levels, HIGH-risk mission log warnings | ✅ Working |
+| Mission dashboard | 3D dashboard, telemetry charts (estimated vs Kalman vs truth), collision badge | ✅ Working |
+| Data management | MongoDB persistence, mission summary report, PDF / JSON / CSV exports | ✅ Working |
+| DINOv1 features | — | ⏳ Future work |
+| Multi-sensor fusion | — | ⏳ Future work |
+
+---
+
+## Setup (Windows PowerShell)
+
+### 1. MongoDB
 ```powershell
-cd c:\Users\91822\OneDrive\Desktop\Spacetug\spacetug_project\frontend
+Get-Service -Name *mongo*          # must be Running
+Start-Service MongoDB              # if it is stopped
+```
+The backend connects to `mongodb://localhost:27017`, database `spaceDB`. Without MongoDB the app still runs,
+but nothing is saved and the mission report is unavailable.
+
+### 2. Backend
+```powershell
+cd C:\Users\91822\OneDrive\Desktop\Spacetug\spacetug_project\backend
+python -m pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+- Health check: http://127.0.0.1:8000/api/health
+- Interactive API docs: http://127.0.0.1:8000/docs
+- YOLO weights: `backend/runs/satellite_yolov8n_v1/weights/best.pt`
+
+### 3. Frontend
+```powershell
+cd C:\Users\91822\OneDrive\Desktop\Spacetug\spacetug_project\frontend
+npm install
 npm run dev
 ```
-
-- **Web Application URL**: [http://localhost:5173/](http://localhost:5173/)
-
----
-
-## 🛠 Feature Verification & Endpoints
-
-| Feature | Endpoint / Route | Status | Notes |
-|---|---|---|---|
-| Health Check | `GET /api/health` | **Live** | Validates MongoDB, detector status, SolvePnP |
-| System Status | `GET /api/status` | **Live** | Full pipeline ready status |
-| Target Management | `GET /api/targets`, `PUT /api/targets/{id}` | **Live** | Seeded with operational SAT-001 |
-| YOLOv8 Detection | `POST /api/detection/run` | **Live** | Upload file, confidence threshold, bounding boxes |
-| SolvePnP Pose | `POST /api/pose/estimate` | **Live** | 6-DoF relative pose with 7-point landmarks |
-| Settings Storage | `GET /api/settings`, `PUT /api/settings` | **Live** | Persisted theme, thresholds to MongoDB |
-| Detections Export | `GET /api/export/detections/csv` | **Live** | CSV download of all detections |
-| Detections JSON | `GET /api/export/detections/json` | **Live** | JSON archive download |
-| Pose Estimates Export | `GET /api/export/poses/csv` | **Live** | CSV download of 6-DoF poses |
-| Mission Summary Report | `GET /api/export/mission-report` | **Live** | Consolidated JSON telemetry report |
-| 3D Simulation View | `/simulation` | **Live** | Three.js orbit rendering and boresight tracking |
+Open http://localhost:5173
 
 ---
 
-## 🔧 Troubleshooting
+## Demo flow
 
-- **MongoDB Service Offline**: Run `net start MongoDB` in PowerShell as Administrator.
-- **YOLO Weights**: Trained weights are loaded from `backend/runs/satellite_yolov8n_v1/weights/best.pt`.
-- **CORS Errors**: The backend CORS middleware allows all origins `allow_origins=["*"]`.
+1. **Welcome:** start or resume a mission. **Dashboard:** press ▶ Play (the simulation must be running).
+2. **Sensors:** choose a sensor, turn on **IR floodlight** if the target is in shadow, press **▶ START LIVE PERCEPTION**:
+   the satellite gets a green box with a persistent **TRK-01** ID, and the panel shows pose, motion and collision risk live.
+3. **Capture Frame → Detection:** YOLOv8n detection on the captured frame.
+4. **Pose Estimation:** *Projected landmarks*: solvePnP with a noise slider, estimated vs ground truth.
+   *ORB / SIFT*: tick **Auto-add captures**, capture 10–15 frames from different angles, then estimate on a new frame
+   ("Identified: SAT-001", inliers, match image).
+5. **Telemetry:** range, relative speed, tumbling rate (raw vs Kalman vs truth) and CPA distance.
+6. **Settings:** perception settings, interactive SAT-001 model with labelled parts, and the **Mission report**
+   (PDF / JSON / CSV downloads).
+
+---
+
+## Tests and evaluation
+
+```powershell
+cd spacetug_project\backend
+python -m pytest                                   # 39 unit / API tests
+python tests\evaluate_pipeline.py                  # writes backend\results\RESULTS.md + charts (~1 min)
+```
+
+The evaluation measures the real project code against exact simulation ground truth:
+
+| Experiment | Key result |
+|---|---|
+| Pose, known correspondences (150 poses) | σ = 0 px: 0.000° / 0.00 % error; σ = 1 px: 1.2° rotation, 0.47 % range (ITERATIVE) |
+| ORB vs SIFT on 20 new viewpoints | ORB identified 75 % (median 0.91°), SIFT 55 % (median 0.68°), 0 false IDs on empty frames |
+| SORT tracking, 400 frames | 0 ID switches, 100 % ID consistency with 30 % missed detections + 5 % false positives |
+| Kalman relative motion (σ = 1 px) | speed RMSE 0.049 → 0.003 m/s, tumble RMSE 2.07 → 0.04 °/s (raw → Kalman) |
+| Collision risk, 3 encounter scenarios | 91.7–100 % agreement with the true risk level |
+
+See `backend/results/RESULTS.md` for all tables and `docs/TEST_PLAN.md` for the module test plan.
+
+---
+
+## API overview (`/api/...`)
+
+| Area | Endpoints |
+|---|---|
+| System | `GET /health`, `GET /status`, `GET /sensors`, `GET /targets`, `GET/PUT /targets/{id}` |
+| Missions | `GET/POST /missions`, `GET/PUT /missions/{id}`, `GET /missions/{id}/summary`, `GET/POST /mission-logs`, `GET /activity` |
+| Detection & preprocessing | `POST /detection/run`, `GET /detections`, `POST /pipeline/process`, `GET /images/{filename}` |
+| Pose | `GET /pose/landmarks`, `POST /pose/estimate`, `POST /pose/estimate-from-image`, `GET /poses` |
+| Feature library | `GET/POST/DELETE /features/reference` |
+| Live perception | `POST /perception/step`, `POST /perception/reset`, `POST /collision/assess` |
+| Settings | `GET/PUT /settings`, `POST /settings/reset` |
+| Export | `GET /export/detections/csv`, `GET /export/detections/json`, `GET /export/poses/csv`, `GET /export/mission-report` |
+
+---
+
+## MongoDB collections (`spaceDB`)
+
+`missions`, `mission_logs`, `detection_results`, `pose_estimates`, `perception_steps`, `tracks`,
+`simulation_sessions`, `targets`, `activity_logs`, `user_settings`
+
+---
+
+## Limitations
+
+- All images come from the 3D simulator (rendered satellite.glb); the system has not been tested on real space imagery.
+- The landmark pose path uses projected landmarks with simulated pixel noise; the ORB/SIFT path uses real image features on rendered frames.
+- The ORB/SIFT reference library must be built from captured frames (ground-truth pose known in simulation).
+
+## Troubleshooting
+
+- **No detections / no track:** the target may be in Earth's shadow; turn on the IR floodlight or use Target view.
+- **Motion and collision show "--":** the simulation is paused; motion needs simulation time to advance.
+- **"No pose data in this frame":** the frame was opened from the gallery; capture a new frame on the Sensors page.
+- **MongoDB offline:** `net start MongoDB` (Administrator PowerShell).
