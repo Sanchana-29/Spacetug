@@ -387,11 +387,11 @@ async def run_detection(
             for idx, det in enumerate(detections):
                 bb = det["bounding_box"]
                 x, y, w, h = bb["x"], bb["y"], bb["width"], bb["height"]
-                # Give each detection a discrete track identifier
-                track_id = f"TRK-{idx + 1:02d}"
-                det["track_id"] = track_id
+                # Single-frame detection has no temporal association, so no track ID.
+                # Persistent track IDs come from /api/perception/step (SORT tracker).
+                det["track_id"] = None
                 cv2.rectangle(annotated_image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                label = f"{det['class_name']} [{track_id}] {int(det['confidence']*100)}%"
+                label = f"{det['class_name']} {int(det['confidence']*100)}%"
                 cv2.putText(annotated_image, label, (x, max(20, y - 10)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
@@ -709,6 +709,97 @@ def estimate_pose_from_image_api(req: FeaturePoseRequest):
                 "timestamp": now_iso,
             })
     return result
+
+# --------------------------------------------------
+# PHASES 3-5: LIVE PERCEPTION (tracking + pose + motion + collision)
+# --------------------------------------------------
+
+class PerceptionStepRequest(BaseModel):
+    session_id: str
+    timestamp: float  # simulation time (s)
+    image: Optional[str] = None  # data URL; if given -> YOLO detection + tracking
+    confidence: float = Field(0.4, ge=0.01, le=0.99)
+    image_points: Optional[Dict[str, List[float]]] = None
+    image_size: Optional[List[int]] = None
+    camera_matrix: Optional[List[List[float]]] = None
+    method: str = "ITERATIVE"
+    ground_truth: Optional[dict] = None
+    camera_rotation_world: Optional[List[List[float]]] = None  # chaser attitude (3x3)
+    safety_radius_m: float = Field(2.0, gt=0, le=100)
+    horizon_s: float = Field(60.0, gt=0, le=3600)
+    mission_id: Optional[str] = None
+    sensor_name: Optional[str] = None
+
+
+class SessionRequest(BaseModel):
+    session_id: str
+
+
+class CollisionRequest(BaseModel):
+    relative_position: List[float]
+    relative_velocity: List[float]
+    safety_radius_m: float = Field(2.0, gt=0, le=100)
+    horizon_s: float = Field(60.0, gt=0, le=3600)
+
+
+@router.post("/perception/step")
+def perception_step(req: PerceptionStepRequest):
+    from cv.perception import get_session
+    image_bgr = None
+    if req.image:
+        try:
+            from cv.features import decode_image
+            image_bgr = decode_image(req.image)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    try:
+        result = get_session(req.session_id).step(
+            timestamp=req.timestamp, image_bgr=image_bgr, detect_fn=detect_target,
+            conf=req.confidence, image_points=req.image_points, image_size=req.image_size,
+            camera_matrix=req.camera_matrix, method=req.method, ground_truth=req.ground_truth,
+            camera_rotation_world=req.camera_rotation_world,
+            safety_radius_m=req.safety_radius_m, horizon_s=req.horizon_s)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Perception step error: {e}")
+
+    db = get_database()
+    if db is not None:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        trk = result.get("tracking") or {}
+        coll = (result.get("collision") or {}).get("estimated") or {}
+        db.perception_steps.insert_one({
+            "timestamp": now_iso, "sim_time": req.timestamp, "session_id": req.session_id,
+            "mission_id": req.mission_id, "sensor_name": req.sensor_name,
+            "tracks": trk.get("tracks"), "id_switches": trk.get("id_switches"),
+            "pose_errors": (result.get("pose") or {}).get("errors_vs_gt"),
+            "motion": result.get("motion"), "collision": result.get("collision"),
+        })
+        if trk.get("tracks"):
+            db.tracks.insert_many([{**t, "timestamp": now_iso, "sim_time": req.timestamp,
+                                    "session_id": req.session_id, "mission_id": req.mission_id}
+                                   for t in trk["tracks"]])
+        if (result.get("collision") or {}).get("risk_changed") and coll.get("risk_level") == "HIGH" and req.mission_id:
+            db.mission_logs.insert_one({
+                "mission_id": req.mission_id, "level": "WARNING", "event": "COLLISION_RISK_HIGH",
+                "message": f"Collision risk HIGH: CPA {coll.get('d_cpa_m')} m in {coll.get('t_cpa_s')} s, "
+                           f"TTC {coll.get('ttc_s')} s",
+                "timestamp": now_iso,
+            })
+    return result
+
+
+@router.post("/perception/reset")
+def perception_reset(req: SessionRequest):
+    from cv.perception import reset_session
+    return reset_session(req.session_id)
+
+
+@router.post("/collision/assess")
+def collision_assess(req: CollisionRequest):
+    from cv.collision import assess_collision
+    if len(req.relative_position) != 3 or len(req.relative_velocity) != 3:
+        raise HTTPException(status_code=400, detail="relative_position and relative_velocity need 3 values")
+    return assess_collision(req.relative_position, req.relative_velocity, req.safety_radius_m, req.horizon_s)
 
 @router.get("/poses")
 def get_pose_history(mission_id: Optional[str] = None, limit: int = Query(20, ge=1, le=100)):

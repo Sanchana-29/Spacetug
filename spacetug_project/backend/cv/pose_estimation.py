@@ -416,6 +416,7 @@ def estimate_pose(
             "quaternion": quaternion,
             "rotation_matrix": [[round(float(c), 5) for c in row] for row in rotation_matrix],
             "rotation_vector": [round(float(v), 6) for v in rvec.flatten()],
+            "translation_vector": [float(v) for v in tvec.flatten()],
             "reprojection_rmse_px": round(reprojection_rmse, 3),
             "landmarks_used": len(object_points),
             "landmark_ids": used_ids,

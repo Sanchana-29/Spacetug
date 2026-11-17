@@ -8,6 +8,7 @@ import VelocityChart from "../components/Telemetry/VelocityChart/VelocityChart";
 import AttitudeChart from "../components/Telemetry/AttitudeChart/AttitudeChart";
 import TumblingChart from "../components/Telemetry/TumblingChart/TumblingChart";
 import TelemetryLogs from "../components/Telemetry/TelemetryLogs/TelemetryLogs";
+import PerceptionCharts from "../components/Telemetry/PerceptionCharts/PerceptionCharts";
 
 function Telemetry() {
   return (
@@ -20,6 +21,8 @@ function Telemetry() {
         <TelemetryControls />
 
         <LiveMetrics />
+
+        <PerceptionCharts />
 
         <DistanceChart />
 

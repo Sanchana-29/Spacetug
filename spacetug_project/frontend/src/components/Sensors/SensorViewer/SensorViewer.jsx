@@ -26,8 +26,11 @@ import {
   getOpenCvGroundTruthPose,
   landmarksFromApi,
   TARGET_LANDMARKS_3D,
+  grabSensorFrame,
+  buildImagePoints,
 } from "../../../utils/poseGeometry";
-import { getPoseLandmarksApi } from "../../../services/api";
+import { getPoseLandmarksApi, perceptionStepApi } from "../../../services/api";
+import { usePerception } from "../../../context/PerceptionContext";
 
 function SensorViewer({ sensorData }) {
   const {
@@ -45,7 +48,18 @@ function SensorViewer({ sensorData }) {
     isRunning,
     irFloodlight,
     setIrFloodlight,
+    simTimeRef,
   } = useSimulation();
+  const {
+    liveActive,
+    liveRate,
+    liveNoise,
+    safetyRadius,
+    sessionId,
+    latest: perceptionLatest,
+    pushStep,
+    setLastError,
+  } = usePerception();
   const navigate = useNavigate();
 
   const [capturing, setCapturing] = useState(false);
@@ -69,6 +83,67 @@ function SensorViewer({ sensorData }) {
       cancelled = true;
     };
   }, []);
+
+  // ── LIVE PERCEPTION LOOP (Phases 3-5) ────────────────────────────────────
+  // Every 1/liveRate s: render the sensor view, send image (YOLO + SORT tracking),
+  // noisy 2D landmarks (solvePnP), ground truth and chaser attitude to the backend,
+  // which returns tracks, pose, Kalman-filtered relative motion and collision risk.
+  const inflightRef = useRef(false);
+  const liveCfgRef = useRef({});
+  useEffect(() => {
+    liveCfgRef.current = {
+      liveNoise,
+      safetyRadius,
+      sessionId,
+      missionId: activeMission?.mission_id || null,
+      sensor: selectedSensor,
+    };
+  }, [liveNoise, safetyRadius, sessionId, activeMission?.mission_id, selectedSensor]);
+
+  useEffect(() => {
+    if (!liveActive) return undefined;
+    const intervalMs = Math.max(250, Math.round(1000 / (Number(liveRate) || 2)));
+
+    const id = setInterval(async () => {
+      if (inflightRef.current) return; // never queue requests
+      const cfg = liveCfgRef.current;
+      const frame = grabSensorFrame(glContextRef.current, {
+        landmarks3D: landmarks3DRef.current,
+        format: "image/jpeg",
+        quality: 0.85,
+      });
+      if (!frame) return;
+
+      inflightRef.current = true;
+      try {
+        const gt = frame.groundTruthPose;
+        const imagePoints = buildImagePoints(
+          { landmarks: frame.landmarkGeometry },
+          { noiseSigmaPx: cfg.liveNoise, excludeOccluded: true }
+        );
+        const res = await perceptionStepApi({
+          session_id: cfg.sessionId,
+          timestamp: Number(simTimeRef?.current ?? performance.now() / 1000),
+          image: frame.imageData,
+          image_points: imagePoints,
+          image_size: [frame.imgW, frame.imgH],
+          camera_matrix: frame.cameraMatrix,
+          ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
+          camera_rotation_world: frame.cameraRotationWorld,
+          safety_radius_m: cfg.safetyRadius,
+          mission_id: cfg.missionId,
+          sensor_name: cfg.sensor,
+        });
+        pushStep(res, { imageSize: [frame.imgW, frame.imgH] });
+      } catch (e) {
+        setLastError(e?.message || "Perception step failed");
+      } finally {
+        inflightRef.current = false;
+      }
+    }, intervalMs);
+
+    return () => clearInterval(id);
+  }, [liveActive, liveRate, pushStep, setLastError, simTimeRef]);
 
   const onGlReady = useCallback((context) => {
     glContextRef.current = context;
@@ -400,6 +475,33 @@ function SensorViewer({ sensorData }) {
 
       {/* SENSOR VIEWPORT */}
       <div className="viewer-content">
+        {liveActive && perceptionLatest?.imageSize && (
+          <svg
+            className="live-track-overlay"
+            viewBox={`0 0 ${perceptionLatest.imageSize[0]} ${perceptionLatest.imageSize[1]}`}
+            preserveAspectRatio="none"
+          >
+            {(perceptionLatest.tracking?.tracks || []).map((t) => {
+              const [x1, y1, x2, y2] = t.bbox;
+              const sw = Math.max(2, perceptionLatest.imageSize[0] / 500);
+              return (
+                <g key={t.track_id}>
+                  <rect x={x1} y={y1} width={x2 - x1} height={y2 - y1} fill="none" stroke="#22c55e" strokeWidth={sw} />
+                  <polyline
+                    points={(t.trail || []).map((p) => p.join(",")).join(" ")}
+                    fill="none"
+                    stroke="#facc15"
+                    strokeWidth={sw}
+                    strokeDasharray={`${sw * 3} ${sw * 2}`}
+                  />
+                  <text x={x1} y={Math.max(20, y1 - 8)} fill="#22c55e" fontSize={perceptionLatest.imageSize[0] / 60} fontWeight="700">
+                    {t.track_id} · {Math.round(t.confidence * 100)}% · age {t.age_frames}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        )}
         <SensorTargetView
           selectedSensor={selectedSensor}
           viewMode={viewMode}

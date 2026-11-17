@@ -6,6 +6,7 @@ import "./Sensors.css";
 
 import SensorTabs from "../components/Sensors/SensorTabs/SensorTabs";
 import SensorViewer from "../components/Sensors/SensorViewer/SensorViewer";
+import LivePerceptionPanel from "../components/Sensors/LivePerceptionPanel/LivePerceptionPanel";
 
 import { getSensorData } from "../services/api.js";
 
@@ -146,6 +147,7 @@ function Sensors() {
             ===================================== */}
         <div className="sensors-right-col">
           <SensorViewer sensorData={sensorData} />
+          <LivePerceptionPanel />
         </div>
 
       </div>

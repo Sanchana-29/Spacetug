@@ -179,3 +179,49 @@ export function getOpenCvGroundTruthPose(camera, targetObject) {
     range_m: Number(pos.length().toFixed(4)),
   };
 }
+
+/**
+ * Chaser (sensor camera) attitude: 3x3 rotation camera -> world, Three.js axes.
+ * In a real spacecraft this comes from the star tracker / IMU. Used to express
+ * relative motion in a non-rotating frame.
+ */
+export function getCameraWorldRotation(camera) {
+  if (!camera) return null;
+  camera.updateMatrixWorld(true);
+  const e = camera.matrixWorld.elements;
+  const r6 = (x) => Number(x.toFixed(6));
+  return [
+    [r6(e[0]), r6(e[4]), r6(e[8])],
+    [r6(e[1]), r6(e[5]), r6(e[9])],
+    [r6(e[2]), r6(e[6]), r6(e[10])],
+  ];
+}
+
+/**
+ * Render the sensor view once and return everything the perception pipeline needs
+ * for THIS exact frame: image, intrinsics, 2D landmarks (+visibility), ground truth
+ * and the chaser attitude.
+ */
+export function grabSensorFrame(context, { landmarks3D = TARGET_LANDMARKS_3D, fallbackFov = 60, format = "image/png", quality } = {}) {
+  if (!context?.gl || !context?.scene || !context?.camera) return null;
+  context.gl.render(context.scene, context.camera);
+  const imageData = context.gl.domElement.toDataURL(format, quality);
+  if (!imageData || imageData === "data:,") return null;
+
+  const cam = context.camera;
+  const imgW = context.gl.domElement.width;
+  const imgH = context.gl.domElement.height;
+  const vFov = cam.fov || fallbackFov;
+  const target = context.scene.getObjectByName("TargetSpacecraftGroup");
+
+  return {
+    imageData,
+    imgW,
+    imgH,
+    vFov,
+    cameraMatrix: getCameraIntrinsicsMatrix(imgW, imgH, vFov),
+    landmarkGeometry: target ? projectLandmarksToPixels(cam, target, imgW, imgH, landmarks3D) : null,
+    groundTruthPose: target ? getOpenCvGroundTruthPose(cam, target) : null,
+    cameraRotationWorld: getCameraWorldRotation(cam),
+  };
+}

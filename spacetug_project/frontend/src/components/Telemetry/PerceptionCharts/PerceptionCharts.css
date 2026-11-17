@@ -1,0 +1,29 @@
+.perception-chart .chart-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pc-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+.pc-chart-body {
+  height: 240px;
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.pc-footer {
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 0 12px 10px;
+  font-family: monospace;
+}
+.perception-empty p {
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.telemetry-page .perception-empty {
+  grid-column: 1 / -1;
+}

@@ -358,3 +358,22 @@ export async function estimatePoseFromImageApi(payload) {
   });
   return jsonOrThrow(r, "Feature-based pose request failed");
 }
+
+// ─── Phases 3-5: live perception (tracking + pose + motion + collision) ─────
+export async function perceptionStepApi(payload) {
+  const r = await fetch(`${API_BASE_URL}/api/perception/step`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return jsonOrThrow(r, "Perception step failed");
+}
+
+export async function perceptionResetApi(sessionId) {
+  const r = await fetch(`${API_BASE_URL}/api/perception/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+  return jsonOrThrow(r, "Perception reset failed");
+}

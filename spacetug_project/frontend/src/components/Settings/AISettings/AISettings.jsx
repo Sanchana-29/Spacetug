@@ -31,9 +31,8 @@ function AISettings() {
         <div className="setting-item">
           <label>Tracking Algorithm</label>
 
-          <select>
-            <option>ByteTrack</option>
-            <option>DeepSORT</option>
+          <select defaultValue="SORT" title="Used by Live Perception on the Sensors page">
+            <option value="SORT">SORT (Kalman + IoU, Hungarian)</option>
           </select>
         </div>
 

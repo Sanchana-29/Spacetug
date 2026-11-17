@@ -8,6 +8,7 @@ import { WindowProvider } from "./context/WindowContext";
 import { MissionProvider } from "./context/MissionContext";
 import { SensorProvider } from "./context/SensorContext";
 import { SimulationProvider } from "./context/SimulationContext";
+import { PerceptionProvider } from "./context/PerceptionContext";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <MissionProvider>
         <SensorProvider>
           <SimulationProvider>
-            <App />
+            <PerceptionProvider>
+              <App />
+            </PerceptionProvider>
           </SimulationProvider>
         </SensorProvider>
       </MissionProvider>

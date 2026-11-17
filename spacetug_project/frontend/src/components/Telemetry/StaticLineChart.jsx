@@ -112,6 +112,7 @@ export default function StaticLineChart({
             fill="none"
             stroke={line.color}
             strokeWidth="2.5"
+            strokeDasharray={line.dash || undefined}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -227,6 +228,16 @@ export default function StaticLineChart({
         </text>
 
         {series.map(renderLine)}
+      {series.some((l) => l.label) && (
+          <g>
+            {series.map((l, i) => (
+              <g key={`legend-${l.key}`} transform={`translate(${padding.left + 10 + i * 130}, ${padding.top - 6})`}>
+                <line x1="0" y1="0" x2="16" y2="0" stroke={l.color} strokeWidth="3" strokeDasharray={l.dash || undefined} />
+                <text x="21" y="4" fill="#cbd5e1" fontSize="11">{l.label}</text>
+              </g>
+            ))}
+          </g>
+        )}
       </svg>
     </div>
   );
