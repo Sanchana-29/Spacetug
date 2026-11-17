@@ -114,6 +114,9 @@ class MotionEstimator:
         rng = float(np.linalg.norm(r_w))
         out = {"time": float(t), "range_m": rng, "position_world": r_w.tolist()}
 
+        if self.prev is not None and t < self.prev[0] - 1e-6:
+            # simulation time went backwards (mission reset / reload): start over
+            self.reset()
         if self.prev is None or t <= self.prev[0]:
             if self.prev is None:
                 self.prev = (t, R_tw, r_w)

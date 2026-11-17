@@ -1,5 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { perceptionResetApi } from "../services/api";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { perceptionResetApi, getUserSettings } from "../services/api";
+import { useSimulation } from "./SimulationContext";
+import { useSensor } from "./SensorContext";
 
 /**
  * Live perception state (Phases 3-5): the Sensors page runs the loop, every page can
@@ -44,6 +46,34 @@ export function PerceptionProvider({ children }) {
   const [liveRate, setLiveRate] = useState(2); // frames per second
   const [liveNoise, setLiveNoise] = useState(1); // landmark pixel noise sigma
   const [safetyRadius, setSafetyRadius] = useState(2.0);
+  const [collisionHorizon, setCollisionHorizon] = useState(60);
+  const [featureMinInliers, setFeatureMinInliers] = useState(15);
+  const [featureMinRatio, setFeatureMinRatio] = useState(0.4);
+  const { setSimulationSpeed } = useSimulation() || {};
+  const { setConfidenceThreshold } = useSensor() || {};
+
+  // Apply the saved settings (spaceDB) once at app start, so they are used everywhere
+  useEffect(() => {
+    let cancelled = false;
+    getUserSettings()
+      .then((cfg) => {
+        if (cancelled || !cfg) return;
+        const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+        if (n(cfg.live_rate_fps) != null) setLiveRate(n(cfg.live_rate_fps));
+        if (n(cfg.live_noise_px) != null) setLiveNoise(n(cfg.live_noise_px));
+        if (n(cfg.safety_radius_m) != null) setSafetyRadius(n(cfg.safety_radius_m));
+        if (n(cfg.collision_horizon_s) != null) setCollisionHorizon(n(cfg.collision_horizon_s));
+        if (n(cfg.feature_min_inliers) != null) setFeatureMinInliers(n(cfg.feature_min_inliers));
+        if (n(cfg.feature_min_inlier_ratio) != null) setFeatureMinRatio(n(cfg.feature_min_inlier_ratio));
+        if (n(cfg.default_speed) != null && setSimulationSpeed) setSimulationSpeed(n(cfg.default_speed));
+        if (n(cfg.confidence_threshold) != null && setConfidenceThreshold) setConfidenceThreshold(n(cfg.confidence_threshold));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sessionId, setSessionId] = useState(() => `LIVE-${Date.now()}`);
   const [latest, setLatest] = useState(null);
   const [history, setHistory] = useState([]);
@@ -77,6 +107,12 @@ export function PerceptionProvider({ children }) {
       setLiveNoise,
       safetyRadius,
       setSafetyRadius,
+      collisionHorizon,
+      setCollisionHorizon,
+      featureMinInliers,
+      setFeatureMinInliers,
+      featureMinRatio,
+      setFeatureMinRatio,
       sessionId,
       latest,
       history,
@@ -85,7 +121,21 @@ export function PerceptionProvider({ children }) {
       pushStep,
       resetPerception,
     }),
-    [liveActive, liveRate, liveNoise, safetyRadius, sessionId, latest, history, lastError, pushStep, resetPerception]
+    [
+      liveActive,
+      liveRate,
+      liveNoise,
+      safetyRadius,
+      collisionHorizon,
+      featureMinInliers,
+      featureMinRatio,
+      sessionId,
+      latest,
+      history,
+      lastError,
+      pushStep,
+      resetPerception,
+    ]
   );
 
   return <PerceptionContext.Provider value={value}>{children}</PerceptionContext.Provider>;

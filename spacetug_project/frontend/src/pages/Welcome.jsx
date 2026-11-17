@@ -108,7 +108,7 @@ function Welcome() {
     if (!mission) return;
     // Restore saved configuration from spaceDB and open dashboard directly WITHOUT rocket animation
     setActiveMission(mission);
-    loadMissionIntoSimulation(mission);
+    loadMissionIntoSimulation(mission, { force: true });
     setShowResumeModal(false);
     navigate("/dashboard");
   };

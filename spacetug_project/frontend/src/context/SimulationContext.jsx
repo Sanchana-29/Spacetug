@@ -501,8 +501,14 @@ function SimulationProvider({ children }) {
     );
   }, [addMissionEvent]);
 
-  const loadMissionIntoSimulation = useCallback((mission) => {
+  // A mission is loaded into the simulation ONCE. Re-visiting the Dashboard must not
+  // reset mission time / positions (that broke live perception and telemetry).
+  const loadedMissionIdRef = useRef(null);
+  const loadMissionIntoSimulation = useCallback((mission, { force = false } = {}) => {
     if (!mission) return;
+    const missionKey = mission.mission_id || mission.name || null;
+    if (!force && missionKey && loadedMissionIdRef.current === missionKey) return;
+    loadedMissionIdRef.current = missionKey;
     const chaserModel = mission.chaser_model || mission.chaserModel || "SpaceTug Inspector (Tri-Thruster Autonomous)";
     const targetModel = mission.target_model || mission.targetModel || "Soyuz-T Satellite (Cylindrical Core + Dual Arrays)";
     const orbitRegime = mission.orbit_regime || mission.orbitRegime || "LEO 450 km (ISS Co-Orbital Inclination 51.6°)";

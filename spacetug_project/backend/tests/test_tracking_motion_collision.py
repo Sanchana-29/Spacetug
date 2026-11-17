@@ -188,3 +188,14 @@ def test_perception_step_end_to_end():
     assert gt["speed_raw_mps"] == pytest.approx(0.2, rel=1e-3)          # 0.1 m per 0.5 s
     assert est["speed_raw_mps"] == pytest.approx(0.2, rel=1e-2)
     assert last["collision"]["ground_truth"]["risk_level"] in ("LOW", "MEDIUM", "HIGH")
+
+
+def test_motion_filter_restarts_when_time_goes_backwards():
+    m = MotionEstimator(filtered=True)
+    R = np.eye(3)
+    for t in (10.0, 10.5, 11.0):
+        m.update(t, R, [0, 0, 5.0 - 0.1 * t])
+    res = m.update(0.0, R, [0, 0, 5.0])        # simulation reset to t = 0
+    assert res["ready"] is False
+    res = m.update(0.5, R, [0, 0, 4.95])
+    assert res["ready"] is True and res["speed_raw_mps"] == pytest.approx(0.1)

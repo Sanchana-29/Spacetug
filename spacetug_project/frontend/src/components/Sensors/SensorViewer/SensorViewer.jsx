@@ -55,6 +55,7 @@ function SensorViewer({ sensorData }) {
     liveRate,
     liveNoise,
     safetyRadius,
+    collisionHorizon,
     sessionId,
     latest: perceptionLatest,
     pushStep,
@@ -94,11 +95,12 @@ function SensorViewer({ sensorData }) {
     liveCfgRef.current = {
       liveNoise,
       safetyRadius,
+      collisionHorizon,
       sessionId,
       missionId: activeMission?.mission_id || null,
       sensor: selectedSensor,
     };
-  }, [liveNoise, safetyRadius, sessionId, activeMission?.mission_id, selectedSensor]);
+  }, [liveNoise, safetyRadius, collisionHorizon, sessionId, activeMission?.mission_id, selectedSensor]);
 
   useEffect(() => {
     if (!liveActive) return undefined;
@@ -131,6 +133,7 @@ function SensorViewer({ sensorData }) {
           ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
           camera_rotation_world: frame.cameraRotationWorld,
           safety_radius_m: cfg.safetyRadius,
+          horizon_s: cfg.collisionHorizon || 60,
           mission_id: cfg.missionId,
           sensor_name: cfg.sensor,
         });

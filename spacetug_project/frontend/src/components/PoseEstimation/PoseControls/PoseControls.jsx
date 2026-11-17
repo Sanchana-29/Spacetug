@@ -40,8 +40,16 @@ function PoseControls({
   const canEstimate =
     Boolean(imageMode ? capturedFrame?.imageData : capturedFrame?.landmarks) && !isEstimatingPose;
 
+  // Frames from the gallery / uploads / older captures carry no camera + landmark geometry
+  const missingGeometry = Boolean(capturedFrame) && !imageMode && !capturedFrame?.landmarks;
+  const missingGroundTruth = Boolean(capturedFrame) && imageMode && !capturedFrame?.camera_matrix;
+
   let statusClass = "pose-status-idle";
   let statusText = capturedFrame ? "Ready to estimate" : "No frame captured";
+  if (missingGeometry || missingGroundTruth) {
+    statusClass = "pose-status-fail";
+    statusText = "No pose data in this frame - capture a NEW frame on the Sensors page";
+  }
   if (isEstimatingPose) {
     statusClass = "pose-status-busy";
     statusText = "Solving...";
@@ -50,7 +58,7 @@ function PoseControls({
     statusText = poseResult.identification
       ? `${poseResult.identification} · ${poseResult.inliers} inliers`
       : `Pose solved (${poseResult.method})`;
-  } else if (poseError) {
+  } else if (poseError && !(missingGeometry || missingGroundTruth)) {
     statusClass = "pose-status-fail";
     statusText = "Pose failed";
   }

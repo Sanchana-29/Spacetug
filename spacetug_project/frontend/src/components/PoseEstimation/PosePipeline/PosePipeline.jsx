@@ -92,7 +92,9 @@ function PosePipeline({ algorithm = "ITERATIVE", isLiveStreaming = true }) {
         </div>
         {!solved && (
           <p className="pipeline-hint">
-            {poseError
+            {capturedFrame && !capturedFrame.landmarks && !poseResult?.feature
+              ? "This frame was opened from the gallery / an older capture and has no camera or landmark data. Go to Sensors and press CAPTURE FRAME to get a frame with pose data."
+              : poseError
               ? `Pose failed: ${poseError}`
               : capturedFrame
               ? "Click Estimate Pose to run solvePnP on the captured frame."

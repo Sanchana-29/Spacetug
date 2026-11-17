@@ -121,6 +121,13 @@ class UserSettingsModel(BaseModel):
     sensor_resolution: Optional[str] = "1920x1080"
     sensor_fps: Optional[int] = 60
     sensor_noise: Optional[float] = 0.0
+    # Settings used by the live perception loop and ORB/SIFT identification
+    live_rate_fps: Optional[float] = Field(default=2.0, ge=0.5, le=5.0)
+    live_noise_px: Optional[float] = Field(default=1.0, ge=0.0, le=5.0)
+    safety_radius_m: Optional[float] = Field(default=2.0, gt=0.0, le=50.0)
+    collision_horizon_s: Optional[float] = Field(default=60.0, gt=0.0, le=3600.0)
+    feature_min_inliers: Optional[int] = Field(default=15, ge=6, le=500)
+    feature_min_inlier_ratio: Optional[float] = Field(default=0.40, ge=0.0, le=1.0)
 
 
 class SimulationSessionModel(BaseModel):
@@ -885,6 +892,16 @@ def create_mission_log(event: MissionEventModel):
 # SETTINGS PERSISTENCE
 # --------------------------------------------------
 
+PERCEPTION_SETTING_DEFAULTS = {
+    "live_rate_fps": 2.0,
+    "live_noise_px": 1.0,
+    "safety_radius_m": 2.0,
+    "collision_horizon_s": 60.0,
+    "feature_min_inliers": 15,
+    "feature_min_inlier_ratio": 0.40,
+}
+
+
 @router.get("/settings")
 def get_user_settings():
     db = get_database()
@@ -903,6 +920,7 @@ def get_user_settings():
             "active_target_id": "SAT-001",
             "preferred_sensor": "RGB-D Camera",
             "active_mission_id": "MSN-DEFAULT-01",
+            **PERCEPTION_SETTING_DEFAULTS,
             "db_connected": False
         }
 
@@ -922,9 +940,12 @@ def get_user_settings():
             "active_target_id": "SAT-001",
             "preferred_sensor": "RGB-D Camera",
             "active_mission_id": "MSN-DEFAULT-01",
+            **PERCEPTION_SETTING_DEFAULTS,
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
         db.user_settings.insert_one(doc)
+    for k, v in PERCEPTION_SETTING_DEFAULTS.items():
+        doc.setdefault(k, v)
     doc["db_connected"] = True
     return serialize_doc(doc)
 
@@ -941,7 +962,8 @@ def update_user_settings(settings: UserSettingsModel):
     db.user_settings.update_one({"id": "global_settings"}, {"$set": data}, upsert=True)
     db.activity_logs.insert_one({
         "action": "SETTINGS_UPDATED",
-        "details": f"User preferences updated (Theme: {data.get('theme')})",
+        "details": f"Settings updated (speed {data.get('default_speed')}x, YOLO conf {data.get('confidence_threshold')}, "
+                   f"safety radius {data.get('safety_radius_m')} m)",
         "timestamp": datetime.now(timezone.utc).isoformat()
     })
     return {"status": "success", "settings": data}
@@ -966,6 +988,7 @@ def reset_user_settings():
         "active_target_id": "SAT-001",
         "preferred_sensor": "RGB-D Camera",
         "active_mission_id": "MSN-DEFAULT-01",
+        **PERCEPTION_SETTING_DEFAULTS,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     db.user_settings.update_one({"id": "global_settings"}, {"$set": defaults}, upsert=True)
@@ -1070,6 +1093,16 @@ def export_poses_csv(mission_id: Optional[str] = None):
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+@router.get("/missions/{mission_id}/summary")
+def get_mission_summary(mission_id: str):
+    """Everything done in this mission, aggregated from spaceDB (use 'ALL' for every mission)."""
+    from services.mission_summary import build_mission_summary
+    db = get_database()
+    if db is None:
+        raise HTTPException(status_code=503, detail="spaceDB is unavailable")
+    return build_mission_summary(db, None if mission_id.upper() == "ALL" else mission_id)
+
+
 @router.get("/export/mission-report")
 def export_mission_report(mission_id: Optional[str] = None):
     db = get_database()
@@ -1089,8 +1122,10 @@ def export_mission_report(mission_id: Optional[str] = None):
     sessions = [serialize_doc(s) for s in db.simulation_sessions.find(q_filter).sort("timestamp", -1).limit(20)]
     logs = [serialize_doc(l) for l in db.mission_logs.find(q_filter).sort("timestamp", -1).limit(100)]
 
+    from services.mission_summary import build_mission_summary
     report = {
         "report_title": "Spacecraft Perception & Pose Estimation Mission Summary",
+        "summary": build_mission_summary(db, mission_id),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "mission_metadata": serialize_doc(mission_doc),
         "target_spacecraft": targets,

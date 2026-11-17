@@ -377,3 +377,10 @@ export async function perceptionResetApi(sessionId) {
   });
   return jsonOrThrow(r, "Perception reset failed");
 }
+
+// ─── Settings page: mission summary + export URLs ──────────────────────────
+export async function getMissionSummaryApi(missionId) {
+  const id = encodeURIComponent(missionId || "ALL");
+  const r = await fetchWithTimeout(`${API_BASE_URL}/api/missions/${id}/summary`, {}, 8000);
+  return jsonOrThrow(r, "Failed to load the mission summary");
+}

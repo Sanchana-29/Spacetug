@@ -7,6 +7,7 @@ import PosePipeline from "../components/PoseEstimation/PosePipeline/PosePipeline
 import PoseViewer from "../components/PoseEstimation/PoseViewer/PoseViewer";
 import PoseResults from "../components/PoseEstimation/PoseResults/PoseResults";
 import { useSensor } from "../context/SensorContext";
+import { usePerception } from "../context/PerceptionContext";
 import { buildImagePoints } from "../utils/poseGeometry";
 import {
   getFeatureLibraryApi,
@@ -23,6 +24,7 @@ function PoseEstimation() {
     setAutoAddToLibrary,
     libraryVersion,
   } = useSensor();
+  const { featureMinInliers, featureMinRatio } = usePerception();
 
   // Solver: ITERATIVE | EPNP | SQPNP (mapped to cv2.SOLVEPNP_* in the backend)
   const [algorithm, setAlgorithm] = useState("ITERATIVE");
@@ -131,6 +133,8 @@ function PoseEstimation() {
             : null,
           sensor_name: capturedFrame.selectedSensor,
           target_id: target,
+          min_inliers: featureMinInliers,
+          min_inlier_ratio: featureMinRatio,
         },
         "image"
       );
@@ -157,16 +161,18 @@ function PoseEstimation() {
       ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
       target_id: target,
     });
-  }, [capturedFrame, noiseSigma, excludeOccluded, algorithm, feature, target, runPoseEstimation, detectionBBox]);
+  }, [capturedFrame, noiseSigma, excludeOccluded, algorithm, feature, target, runPoseEstimation, detectionBBox, featureMinInliers, featureMinRatio]);
 
   // Auto-estimate once for every newly captured frame
   const lastAutoFrameRef = useRef(null);
   useEffect(() => {
     if (!autoEstimate || !capturedFrame?.id) return;
+    // nothing to solve for frames without geometry (gallery / old captures)
+    if (feature === "LANDMARKS" && !capturedFrame.landmarks) return;
     if (lastAutoFrameRef.current === capturedFrame.id) return;
     lastAutoFrameRef.current = capturedFrame.id;
     handleEstimate();
-  }, [autoEstimate, capturedFrame, handleEstimate]);
+  }, [autoEstimate, capturedFrame, handleEstimate, feature]);
 
   return (
     <Layout showInspector={false} showFooter={false}>

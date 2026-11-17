@@ -15,11 +15,20 @@ function LiveMetrics() {
     chaserPosition,
     targetPosition,
     angularVelocity,
-    relativeVelocity,
+    telemetrySamples,
     isRunning,
     missionTime,
     isTracking,
   } = useSimulation();
+
+  // latest finite-difference relative speed from the shared telemetry samples
+  const relativeVelocity = useMemo(() => {
+    for (let i = (telemetrySamples?.length || 0) - 1; i >= 0; i -= 1) {
+      const v = telemetrySamples[i]?.velocity;
+      if (Number.isFinite(v)) return v;
+    }
+    return null;
+  }, [telemetrySamples]);
 
   const metrics = useMemo(() => {
     const dx = targetPosition.x - chaserPosition.x;
@@ -35,14 +44,14 @@ function LiveMetrics() {
       Math.sqrt(wx * wx + wy * wy + wz * wz);
 
     const relVelVal = Number.isFinite(relativeVelocity)
-      ? `${relativeVelocity.toFixed(2)} m/s`
-      : "0.00 m/s";
+      ? `${relativeVelocity.toFixed(3)} m/s`
+      : "-- m/s";
 
     return [
       {
         title: "Relative Distance",
         value: Number.isFinite(distance)
-          ? `${distance.toFixed(2)} units`
+          ? `${distance.toFixed(2)} m`
           : "--",
         icon: <FaRuler />,
       },
