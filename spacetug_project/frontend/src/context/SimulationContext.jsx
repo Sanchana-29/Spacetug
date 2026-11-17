@@ -48,6 +48,8 @@ function SimulationProvider({ children }) {
   const [selectedObject, setSelectedObject] = useState(null);
   const [trackingTarget, setTrackingTarget] = useState(null);
   const [isTracking, setIsTracking] = useState(false);
+  const [isPoseLocked, setIsPoseLocked] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const [cameraMode, setCameraMode] = useState("CHASER"); // "CHASER" | "TARGET" | "FREE"
 
   const [isRunning, setIsRunning] = useState(false);
@@ -454,6 +456,9 @@ function SimulationProvider({ children }) {
     setTelemetrySamples([]);
 
     setSelectedObject(null);
+    setTrackingTarget(null);
+    setIsTracking(false);
+    setIsPoseLocked(false);
     setResetKey((previousKey) => previousKey + 1);
   }, [addMissionEvent, isTracking, isRecording]);
 
@@ -551,6 +556,10 @@ function SimulationProvider({ children }) {
         setTrackingTarget,
         isTracking,
         setIsTracking,
+        isPoseLocked,
+        setIsPoseLocked,
+        inspectorOpen,
+        setInspectorOpen,
         cameraMode,
         setCameraMode,
 

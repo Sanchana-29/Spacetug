@@ -6,6 +6,7 @@ import Sensors from "../pages/Sensors";
 import Detection from "../pages/Detection";
 import PoseEstimation from "../pages/PoseEstimation";
 import DatasetGenerator from "../pages/DatasetGenerator";
+import ProcessingPipelinePage from "../pages/ProcessingPipelinePage";
 import Telemetry from "../pages/Telemetry";
 import MissionSummary from "../pages/MissionSummary";
 import Settings from "../pages/Settings";
@@ -23,6 +24,7 @@ function AppRoutes() {
         <Route path="/sensors" element={<Sensors />} />
         <Route path="/detection" element={<Detection />} />
         <Route path="/pose-estimation" element={<PoseEstimation />} />
+        <Route path="/image-processing" element={<ProcessingPipelinePage />} />
         <Route path="/dataset-generator" element={<DatasetGenerator />} />
         <Route path="/telemetry" element={<Telemetry />} />
         <Route path="/mission-summary" element={<Navigate to="/settings" replace />} />

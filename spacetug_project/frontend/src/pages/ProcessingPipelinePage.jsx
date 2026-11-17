@@ -1,8 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Layout from "../components/Layout/Layout";
 import {
   runImageProcessingPipelineApi,
-  runDetectionApi,
   dataURLtoBlob,
 } from "../services/api";
 import { useSensor } from "../context/SensorContext";
@@ -19,68 +18,120 @@ import {
   FaEye,
   FaCheckCircle,
   FaExclamationTriangle,
+  FaCamera,
+  FaLayerGroup,
 } from "react-icons/fa";
+
+const SENSOR_MODES = [
+  { id: "RGB-D Camera", label: "RGB-D Optical" },
+  { id: "Stereo Camera", label: "Stereo (Left/Right)" },
+  { id: "Thermal Camera", label: "Thermal IR" },
+  { id: "LiDAR", label: "LiDAR Intensity" },
+];
 
 function ProcessingPipelinePage() {
   const navigate = useNavigate();
-  const { setCapturedFrame, capturedFrame, selectedSensor, sensorThumbnails } = useSensor();
+  const { setCapturedFrame, capturedFrame, selectedSensor, setSelectedSensor, sensorThumbnails, missionGallery } = useSensor();
   const { activeMission } = useMission();
 
-  const [inputMode, setInputMode] = useState("SIMULATION"); // "SIMULATION", "UPLOAD", "WEBCAM"
-  const [captureSource, setCaptureSource] = useState("Simulation Feed");
+  const [inputMode, setInputMode] = useState("SIMULATION"); // "SIMULATION", "GALLERY", "UPLOAD"
+  const [activeSensorChoice, setActiveSensorChoice] = useState(selectedSensor || "RGB-D Camera");
+  const [captureSource, setCaptureSource] = useState(selectedSensor || "RGB-D Camera");
+  
   const [originalImage, setOriginalImage] = useState(() => {
-    // Check if there is an active sensor thumbnail or captured frame from simulation
-    const thumb = sensorThumbnails[selectedSensor];
+    const thumb = sensorThumbnails[selectedSensor] || sensorThumbnails["RGB-D Camera"];
     if (thumb) return thumb;
     if (capturedFrame?.imageData) return capturedFrame.imageData;
     return null;
   });
+  
   const [processedImage, setProcessedImage] = useState(null);
   const [processedFilename, setProcessedFilename] = useState(null);
   const [stages, setStages] = useState([]);
 
-  const [brightness, setBrightness] = useState(0); // -100 to 100
-  const [contrast, setContrast] = useState(1.0); // 0.1 to 3.0
+  // Sliders and controls for real-time enhancement
+  const [brightness, setBrightness] = useState(0); // -80 to 80
+  const [contrast, setContrast] = useState(1.0); // 0.2 to 2.5
+  
+  // Blur Filtering: Gaussian & Median
+  const [blurMode, setBlurMode] = useState("gaussian"); // "gaussian" or "median"
+  const [blurIntensity, setBlurIntensity] = useState(0); // 0 to 15
+  
+  // Edge Detection: Canny & Sobel
+  const [edgeDetection, setEdgeDetection] = useState(false);
+  const [edgeOperator, setEdgeOperator] = useState("canny"); // "canny" or "sobel"
+
+  // Additional feature toggles
   const [grayscale, setGrayscale] = useState(false);
-  const [gaussianBlur, setGaussianBlur] = useState(0); // 0 to 15
   const [sharpen, setSharpen] = useState(false);
   const [denoise, setDenoise] = useState(false);
-  const [edgeDetection, setEdgeDetection] = useState(false);
 
   const [processing, setProcessing] = useState(false);
-  const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState(null);
   const [statusMsg, setStatusMsg] = useState(null);
 
   const fileInputRef = useRef(null);
 
-  const handleCaptureFromSimulation = () => {
+  // Auto-sync sensor choice if context updates
+  useEffect(() => {
+    if (sensorThumbnails[activeSensorChoice] && inputMode === "SIMULATION" && !originalImage) {
+      setOriginalImage(sensorThumbnails[activeSensorChoice]);
+      setCaptureSource(activeSensorChoice);
+    }
+  }, [sensorThumbnails, activeSensorChoice, inputMode, originalImage]);
+
+  // Capture from live simulation or selected sensor feed
+  const handleCaptureFromSensor = (sensorName = activeSensorChoice) => {
     try {
-      // 1. Try canvas query selector
-      const canvas = document.querySelector("#sensor-main-canvas canvas, .sensor-viewer canvas, .sensors-page canvas");
-      let capturedData = null;
-      if (canvas) {
-        capturedData = canvas.toDataURL("image/png");
-      }
-      // 2. Fallback to sensor thumbnail or active capturedFrame
-      if (!capturedData || capturedData === "data:,") {
-        capturedData = sensorThumbnails[selectedSensor] || capturedFrame?.imageData;
+      setActiveSensorChoice(sensorName);
+      if (setSelectedSensor) {
+        setSelectedSensor(sensorName);
       }
 
-      if (!capturedData || capturedData === "data:,") {
-        setError("No active simulation sensor canvas rendered. Visit the Sensors page first or upload an image.");
+      // Check captured thumbnails first
+      const thumb = sensorThumbnails[sensorName] || 
+        (sensorName === "Stereo Camera" ? sensorThumbnails["Stereo Left"] || sensorThumbnails["Stereo Right"] : null);
+
+      if (thumb) {
+        setOriginalImage(thumb);
+        setProcessedImage(null);
+        setStages([]);
+        setCaptureSource(`${sensorName} Snapshot`);
+        setError(null);
+        setStatusMsg(`Loaded sensor frame snapshot from ${sensorName}.`);
         return;
       }
 
-      setOriginalImage(capturedData);
-      setProcessedImage(null);
-      setStages([]);
-      setCaptureSource(`Simulation (${selectedSensor})`);
-      setError(null);
-      setStatusMsg(`Captured live frame from simulation sensor: ${selectedSensor}`);
+      // Query active sensor canvas if available
+      const canvas = document.querySelector("#sensor-main-canvas canvas, .sensor-viewer canvas, .sensors-page canvas");
+      if (canvas) {
+        const capturedData = canvas.toDataURL("image/png");
+        if (capturedData && capturedData !== "data:,") {
+          setOriginalImage(capturedData);
+          setProcessedImage(null);
+          setStages([]);
+          setCaptureSource(`${sensorName} (Live WebGL Feed)`);
+          setError(null);
+          setStatusMsg(`Captured live ${sensorName} sensor frame.`);
+          return;
+        }
+      }
+
+      // Fallback to active captured frame
+      if (capturedFrame?.imageData) {
+        setOriginalImage(capturedFrame.imageData);
+        setProcessedImage(null);
+        setStages([]);
+        setCaptureSource(capturedFrame.selectedSensor || "Captured Sensor Frame");
+        setError(null);
+        setStatusMsg(`Loaded recent captured frame: ${capturedFrame.selectedSensor || "Sensor"}`);
+        return;
+      }
+
+      setError(`No active ${sensorName} frame cached. Capture a frame on the Sensors page first or upload an image.`);
     } catch (err) {
-      console.warn("Capture error:", err);
-      setError("Failed to capture frame from simulation WebGL canvas.");
+      console.warn("Sensor capture error:", err);
+      setError("Failed to capture sensor frame buffer.");
     }
   };
 
@@ -93,17 +144,16 @@ function ProcessingPipelinePage() {
       setOriginalImage(loadEvt.target.result);
       setProcessedImage(null);
       setStages([]);
-      setCaptureSource(`Uploaded File (${file.name})`);
+      setCaptureSource(`Uploaded Image (${file.name})`);
       setError(null);
-      setStatusMsg("Original image loaded from file. Adjust controls and click Apply Processing.");
+      setStatusMsg("Frame loaded from local file. Adjust enhancement controls and apply processing.");
     };
     reader.readAsDataURL(file);
   };
 
-
   const applyProcessing = async () => {
     if (!originalImage) {
-      setError("Please upload an image first.");
+      setError("Please capture or load a sensor frame first.");
       return;
     }
 
@@ -117,18 +167,21 @@ function ProcessingPipelinePage() {
         brightness,
         contrast,
         grayscale,
-        gaussian_blur: gaussianBlur,
+        gaussian_blur: blurMode === "gaussian" ? blurIntensity : 0,
+        median_blur: blurMode === "median" ? blurIntensity : 0,
+        blur_mode: blurMode,
         sharpen,
         denoise,
         edge_detection: edgeDetection,
+        edge_operator: edgeOperator,
       });
 
       setProcessedImage(res.processed_image_url);
       setProcessedFilename(res.processed_filename);
       setStages(res.stages_executed || []);
-      setStatusMsg(`Applied ${res.stages_executed?.length || 0} OpenCV processing stages successfully.`);
+      setStatusMsg(`Applied ${res.stages_executed?.length || 0} OpenCV enhancement & preprocessing stages.`);
     } catch (err) {
-      setError(err.message || "Image processing failed");
+      setError(err.message || "Image preprocessing pipeline failed");
     } finally {
       setProcessing(false);
     }
@@ -137,31 +190,36 @@ function ProcessingPipelinePage() {
   const resetToOriginal = () => {
     setBrightness(0);
     setContrast(1.0);
+    setBlurMode("gaussian");
+    setBlurIntensity(0);
+    setEdgeDetection(false);
+    setEdgeOperator("canny");
     setGrayscale(false);
-    setGaussianBlur(0);
     setSharpen(false);
     setDenoise(false);
-    setEdgeDetection(false);
     setProcessedImage(null);
     setStages([]);
-    setStatusMsg("Filters reset to default.");
+    setStatusMsg("Enhancement parameters reset to defaults.");
   };
 
+  // Push the enhanced frame into SensorContext so YOLOv8n object detection executes on preprocessed pixels
   const sendToDetection = () => {
     const imgToSend = processedImage || originalImage;
     if (!imgToSend) return;
 
     const framePayload = {
-      id: `PIPE-${Date.now()}`,
+      id: `PREPROC-${Date.now()}`,
       imageData: imgToSend,
-      selectedSensor: "Pipeline Preprocessed Image",
-      sensorType: "Upload",
+      selectedSensor: `Preprocessed (${captureSource})`,
+      sensorType: "Preprocessed Frame",
       timestamp: new Date().toISOString(),
       formattedTime: new Date().toLocaleTimeString(),
-      missionTime: "0.0",
-      fov: 60,
-      distance: "--",
+      missionTime: capturedFrame?.missionTime || "0.0",
+      fov: capturedFrame?.fov || 60,
+      distance: capturedFrame?.distance || "--",
       mission_id: activeMission?.mission_id || "MSN-DEFAULT-01",
+      preprocessed: true,
+      appliedStages: stages.map((s) => s.stage),
     };
 
     setCapturedFrame(framePayload);
@@ -171,11 +229,12 @@ function ProcessingPipelinePage() {
   return (
     <Layout showInspector={false} showFooter={false}>
       <div className="pipeline-page-container">
+        {/* Header */}
         <div className="pipeline-header">
-          <h2>Computer Vision Image Processing Pipeline</h2>
+          <h2>Image Processing &amp; Preprocessing Module</h2>
           <p>
-            Interactive OpenCV preprocessing pipeline. Inspect adjustments (brightness, contrast,
-            filtering, Canny edge detection) before spacecraft target detection and pose estimation.
+            Interactive OpenCV sensor frame enhancement pipeline. Calibrate Brightness, Contrast, 
+            Blur (Gaussian/Median), and Edge Detection (Canny/Sobel) before YOLOv8n object detection.
           </p>
         </div>
 
@@ -198,107 +257,165 @@ function ProcessingPipelinePage() {
           <div className="pipeline-controls-panel">
             <div className="panel-title">
               <FaSlidersH style={{ marginRight: 8, color: "#38bdf8" }} />
-              <h3>Pipeline Operations</h3>
+              <h3>Enhancement Controls</h3>
             </div>
 
-            {/* INPUT MODE SELECTOR */}
-            <div style={{ display: "flex", gap: "4px", marginBottom: "14px", background: "#091222", padding: "3px", borderRadius: "6px", border: "1px solid #1e293b" }}>
+            {/* SOURCE SELECTOR */}
+            <div style={{ display: "flex", gap: "4px", marginBottom: "12px", background: "#091222", padding: "3px", borderRadius: "6px", border: "1px solid #1e293b" }}>
               <button
                 type="button"
-                onClick={() => {
-                  setInputMode("SIMULATION");
-                  handleCaptureFromSimulation();
-                }}
+                onClick={() => setInputMode("SIMULATION")}
                 style={{
                   flex: 1,
-                  background: inputMode === "SIMULATION" ? "#2563eb" : "transparent",
+                  background: inputMode === "SIMULATION" ? "#0284c7" : "transparent",
                   color: inputMode === "SIMULATION" ? "#fff" : "#94a3b8",
                   border: "none",
                   borderRadius: "4px",
-                  padding: "6px 4px",
+                  padding: "6px 2px",
                   fontSize: "10px",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                SIMULATION
+                SENSORS
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode("GALLERY")}
+                style={{
+                  flex: 1,
+                  background: inputMode === "GALLERY" ? "#0284c7" : "transparent",
+                  color: inputMode === "GALLERY" ? "#fff" : "#94a3b8",
+                  border: "none",
+                  borderRadius: "4px",
+                  padding: "6px 2px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                GALLERY ({missionGallery?.length || 0})
               </button>
               <button
                 type="button"
                 onClick={() => setInputMode("UPLOAD")}
                 style={{
                   flex: 1,
-                  background: inputMode === "UPLOAD" ? "#2563eb" : "transparent",
+                  background: inputMode === "UPLOAD" ? "#0284c7" : "transparent",
                   color: inputMode === "UPLOAD" ? "#fff" : "#94a3b8",
                   border: "none",
                   borderRadius: "4px",
-                  padding: "6px 4px",
+                  padding: "6px 2px",
                   fontSize: "10px",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: "pointer",
                 }}
               >
-                FILE UPLOAD
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setInputMode("WEBCAM");
-                  setError("Physical Camera Hardware: No connected physical USB/GigE optical sensor hardware found on local system. Use Simulation Mode.");
-                }}
-                style={{
-                  flex: 1,
-                  background: inputMode === "WEBCAM" ? "#475569" : "transparent",
-                  color: inputMode === "WEBCAM" ? "#fff" : "#64748b",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "6px 4px",
-                  fontSize: "10px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-                title="Physical Camera Mode (Requires physical hardware)"
-              >
-                REAL CAM
+                UPLOAD
               </button>
             </div>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={handleFileUpload}
-            />
-
-            {inputMode === "SIMULATION" ? (
-              <button
-                className="pipeline-btn btn-upload"
-                onClick={handleCaptureFromSimulation}
-                style={{ background: "linear-gradient(135deg, rgba(37, 99, 235, 0.4), rgba(30, 58, 138, 0.6))", borderColor: "#38bdf8" }}
-              >
-                <FaEye style={{ marginRight: 6 }} />
-                Capture Frame ({selectedSensor})
-              </button>
-            ) : inputMode === "UPLOAD" ? (
-              <button
-                className="pipeline-btn btn-upload"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <FaUpload style={{ marginRight: 6 }} />
-                Upload Image File
-              </button>
-            ) : (
-              <div style={{ padding: "8px", background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", borderRadius: "6px", fontSize: "11px", color: "#fca5a5", marginBottom: "12px" }}>
-                Physical hardware camera integration offline / not detected.
+            {/* SENSOR SPECIFIC SELECTION */}
+            {inputMode === "SIMULATION" && (
+              <div style={{ marginBottom: "14px" }}>
+                <span style={{ fontSize: "11px", color: "#94a3b8", display: "block", marginBottom: "6px", fontWeight: 600 }}>
+                  Active Sensor Feed:
+                </span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                  {SENSOR_MODES.map((sensor) => (
+                    <button
+                      key={sensor.id}
+                      type="button"
+                      onClick={() => handleCaptureFromSensor(sensor.id)}
+                      style={{
+                        padding: "7px 6px",
+                        fontSize: "10px",
+                        fontWeight: activeSensorChoice === sensor.id ? 700 : 500,
+                        background: activeSensorChoice === sensor.id ? "rgba(56, 189, 248, 0.2)" : "#111a2e",
+                        border: `1px solid ${activeSensorChoice === sensor.id ? "#38bdf8" : "#24324d"}`,
+                        color: activeSensorChoice === sensor.id ? "#38bdf8" : "#cbd5e1",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <FaCamera style={{ fontSize: "9px" }} />
+                      {sensor.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
+            {/* GALLERY HISTORY PICKER */}
+            {inputMode === "GALLERY" && (
+              <div style={{ marginBottom: "14px", maxHeight: "120px", overflowY: "auto", border: "1px solid #1e293b", borderRadius: "6px", padding: "4px" }}>
+                {missionGallery.length === 0 ? (
+                  <p style={{ fontSize: "11px", color: "#64748b", textAlign: "center", margin: "8px 0" }}>
+                    No frames in mission gallery yet.
+                  </p>
+                ) : (
+                  missionGallery.map((item, idx) => (
+                    <div
+                      key={item.id || idx}
+                      onClick={() => {
+                        setOriginalImage(item.imageData);
+                        setProcessedImage(null);
+                        setStages([]);
+                        setCaptureSource(item.selectedSensor || `Frame #${idx + 1}`);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "4px 8px",
+                        marginBottom: "4px",
+                        background: "#0f172a",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "10px",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <img src={item.imageData} alt="" style={{ width: "24px", height: "16px", objectFit: "cover", borderRadius: "2px" }} />
+                      <span>{item.selectedSensor || "Captured"}</span>
+                      <span style={{ marginLeft: "auto", color: "#38bdf8" }}>{item.formattedTime || ""}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
+            {/* UPLOAD FILE BUTTON */}
+            {inputMode === "UPLOAD" && (
+              <div style={{ marginBottom: "14px" }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={handleFileUpload}
+                />
+                <button
+                  type="button"
+                  className="pipeline-btn btn-upload"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ width: "100%" }}
+                >
+                  <FaUpload style={{ marginRight: 6 }} />
+                  Select Image File
+                </button>
+              </div>
+            )}
+
+            {/* 1. BRIGHTNESS SLIDER */}
             <div className="control-field">
               <div className="field-label">
                 <span>Brightness</span>
-                <strong>{brightness}</strong>
+                <strong>{brightness > 0 ? `+${brightness}` : brightness}</strong>
               </div>
               <input
                 type="range"
@@ -309,6 +426,7 @@ function ProcessingPipelinePage() {
               />
             </div>
 
+            {/* 2. CONTRAST SLIDER */}
             <div className="control-field">
               <div className="field-label">
                 <span>Contrast</span>
@@ -324,20 +442,118 @@ function ProcessingPipelinePage() {
               />
             </div>
 
+            {/* 3. BLUR FILTERING (GAUSSIAN / MEDIAN) */}
             <div className="control-field">
               <div className="field-label">
-                <span>Gaussian Blur</span>
-                <strong>{gaussianBlur > 0 ? `${gaussianBlur * 2 + 1}px` : "Off"}</strong>
+                <span>Filtering Blur Mode</span>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setBlurMode("gaussian")}
+                    style={{
+                      padding: "2px 6px",
+                      fontSize: "9px",
+                      borderRadius: "3px",
+                      border: "none",
+                      background: blurMode === "gaussian" ? "#0284c7" : "#334155",
+                      color: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Gaussian
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBlurMode("median")}
+                    style={{
+                      padding: "2px 6px",
+                      fontSize: "9px",
+                      borderRadius: "3px",
+                      border: "none",
+                      background: blurMode === "median" ? "#0284c7" : "#334155",
+                      color: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Median
+                  </button>
+                </div>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="10"
-                value={gaussianBlur}
-                onChange={(e) => setGaussianBlur(Number(e.target.value))}
-              />
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+                <input
+                  type="range"
+                  min="0"
+                  max="11"
+                  step="1"
+                  value={blurIntensity}
+                  onChange={(e) => setBlurIntensity(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ fontSize: "11px", color: "#38bdf8", minWidth: "48px", textAlign: "right", fontFamily: "monospace" }}>
+                  {blurIntensity > 0 ? `${blurIntensity * 2 + 1}x${blurIntensity * 2 + 1}` : "OFF"}
+                </span>
+              </div>
             </div>
 
+            {/* 4. EDGE DETECTION OPERATOR (CANNY / SOBEL) */}
+            <div style={{ background: "#0c1626", border: "1px solid #1e293b", padding: "10px", borderRadius: "8px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+                <label style={{ fontSize: "11px", fontWeight: 700, color: "#e2e8f0", display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={edgeDetection}
+                    onChange={(e) => setEdgeDetection(e.target.checked)}
+                  />
+                  <span>Edge Detection</span>
+                </label>
+                {edgeDetection && (
+                  <span style={{ fontSize: "9px", background: "#0284c7", color: "#fff", padding: "2px 6px", borderRadius: "3px", fontWeight: 700 }}>
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+
+              {edgeDetection && (
+                <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={() => setEdgeOperator("canny")}
+                    style={{
+                      flex: 1,
+                      padding: "5px 6px",
+                      fontSize: "10px",
+                      fontWeight: edgeOperator === "canny" ? 700 : 500,
+                      background: edgeOperator === "canny" ? "#0284c7" : "#1e293b",
+                      border: `1px solid ${edgeOperator === "canny" ? "#38bdf8" : "#334155"}`,
+                      color: "#fff",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Canny Operator
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEdgeOperator("sobel")}
+                    style={{
+                      flex: 1,
+                      padding: "5px 6px",
+                      fontSize: "10px",
+                      fontWeight: edgeOperator === "sobel" ? 700 : 500,
+                      background: edgeOperator === "sobel" ? "#0284c7" : "#1e293b",
+                      border: `1px solid ${edgeOperator === "sobel" ? "#38bdf8" : "#334155"}`,
+                      color: "#fff",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Sobel Gradient
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ADDITIONAL PREPROCESSING TOGGLES */}
             <div className="checkbox-field">
               <input
                 type="checkbox"
@@ -345,7 +561,7 @@ function ProcessingPipelinePage() {
                 checked={grayscale}
                 onChange={(e) => setGrayscale(e.target.checked)}
               />
-              <label htmlFor="pipe-gray">Grayscale Conversion</label>
+              <label htmlFor="pipe-gray">Grayscale Normalization</label>
             </div>
 
             <div className="checkbox-field">
@@ -368,16 +584,7 @@ function ProcessingPipelinePage() {
               <label htmlFor="pipe-denoise">Non-Local Means Denoise</label>
             </div>
 
-            <div className="checkbox-field">
-              <input
-                type="checkbox"
-                id="pipe-edge"
-                checked={edgeDetection}
-                onChange={(e) => setEdgeDetection(e.target.checked)}
-              />
-              <label htmlFor="pipe-edge">Canny Edge Detection</label>
-            </div>
-
+            {/* ACTION BUTTONS */}
             <div className="pipeline-action-buttons">
               <button
                 className="pipeline-btn btn-apply"
@@ -385,7 +592,7 @@ function ProcessingPipelinePage() {
                 disabled={!originalImage || processing}
               >
                 <FaPlay style={{ marginRight: 6 }} />
-                {processing ? "Processing..." : "Apply Processing"}
+                {processing ? "Applying Pipeline..." : "Apply Preprocessing"}
               </button>
 
               <button
@@ -394,28 +601,36 @@ function ProcessingPipelinePage() {
                 disabled={processing}
               >
                 <FaUndo style={{ marginRight: 6 }} />
-                Reset Controls
+                Reset
               </button>
             </div>
 
+            {/* SEND TO YOLOv8n PIPELINE */}
             {processedImage && (
-              <div className="pipeline-forward-actions">
-                <a
-                  href={processedImage}
-                  download={`processed_${Date.now()}.png`}
-                  className="pipeline-btn btn-download"
-                >
-                  <FaDownload style={{ marginRight: 6 }} />
-                  Download Processed
-                </a>
-
+              <div className="pipeline-forward-actions" style={{ marginTop: "14px" }}>
                 <button
                   className="pipeline-btn btn-detection"
                   onClick={sendToDetection}
+                  style={{
+                    background: "linear-gradient(135deg, #0284c7, #0369a1)",
+                    borderColor: "#38bdf8",
+                    boxShadow: "0 0 12px rgba(56, 189, 248, 0.3)",
+                    fontWeight: 700,
+                  }}
                 >
                   <FaEye style={{ marginRight: 6 }} />
-                  Send to YOLOv8 Detection
+                  Run YOLOv8n Detection on Preprocessed Frame
                 </button>
+
+                <a
+                  href={processedImage}
+                  download={`enhanced_${Date.now()}.png`}
+                  className="pipeline-btn btn-download"
+                  style={{ marginTop: "6px" }}
+                >
+                  <FaDownload style={{ marginRight: 6 }} />
+                  Download Enhanced Frame
+                </a>
               </div>
             )}
           </div>
@@ -430,14 +645,14 @@ function ProcessingPipelinePage() {
                     Source: {captureSource}
                   </span>
                 </div>
-                <span className="badge badge-info">{originalImage ? "READY" : "AWAITING"}</span>
+                <span className="badge badge-info">{originalImage ? "LOADED" : "NO FRAME"}</span>
               </div>
               <div className="viewer-box-body">
                 {originalImage ? (
                   <img src={originalImage} alt="Original Input" className="pipeline-img" />
                 ) : (
                   <div className="empty-viewport">
-                    <p>No image uploaded yet. Click Upload Image Frame to begin.</p>
+                    <p>No sensor frame loaded. Choose a sensor snapshot above, select from gallery, or upload a frame.</p>
                   </div>
                 )}
               </div>
@@ -445,17 +660,17 @@ function ProcessingPipelinePage() {
 
             <div className="viewer-box">
               <div className="viewer-box-header">
-                <h4>Processed Output (OpenCV Execution)</h4>
+                <h4>Enhanced Output (OpenCV Preprocessed)</h4>
                 <span className="badge badge-success">
-                  {processedImage ? "PROCESSED" : "PENDING"}
+                  {processedImage ? "PREPROCESSED" : "PENDING"}
                 </span>
               </div>
               <div className="viewer-box-body">
                 {processedImage ? (
-                  <img src={processedImage} alt="OpenCV Processed Output" className="pipeline-img" />
+                  <img src={processedImage} alt="OpenCV Enhanced Output" className="pipeline-img" />
                 ) : (
                   <div className="empty-viewport">
-                    <p>Click "Apply Processing" to run OpenCV stages on the input frame.</p>
+                    <p>Adjust enhancement controls and click "Apply Preprocessing" to preview.</p>
                   </div>
                 )}
               </div>
@@ -464,7 +679,7 @@ function ProcessingPipelinePage() {
             {/* STAGES AUDIT TRAIL */}
             {stages.length > 0 && (
               <div className="pipeline-stages-audit">
-                <h4>Active Pipeline Transformation Sequence:</h4>
+                <h4><FaLayerGroup style={{ marginRight: 6, color: "#38bdf8" }} /> Applied Transformation Pipeline Stages:</h4>
                 <div className="stages-pills">
                   {stages.map((st, i) => (
                     <div key={i} className="stage-pill">

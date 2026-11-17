@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import Layout from "../components/Layout/Layout";
 import "./Detection.css";
 
@@ -5,8 +6,18 @@ import DetectionControls from "../components/Detection/DetectionControls/Detecti
 import CapturedGallery from "../components/Detection/CapturedGallery/CapturedGallery";
 import DetectionViewer from "../components/Detection/DetectionViewer/DetectionViewer";
 import DetectionDock from "../components/Detection/DetectionDock/DetectionDock";
+import { useSensor } from "../context/SensorContext";
 
 function Detection() {
+  const { setDetectionResult } = useSensor();
+
+  // Reset detection results on entering the Detection tab
+  useEffect(() => {
+    if (setDetectionResult) {
+      setDetectionResult(null);
+    }
+  }, [setDetectionResult]);
+
   return (
     <Layout
       showInspector={false}

@@ -449,9 +449,12 @@ async def run_image_processing_pipeline(
     contrast: float = Form(1.0),
     grayscale: bool = Form(False),
     gaussian_blur: int = Form(0),
+    median_blur: int = Form(0),
+    blur_mode: str = Form("gaussian"),
     sharpen: bool = Form(False),
     denoise: bool = Form(False),
     edge_detection: bool = Form(False),
+    edge_operator: str = Form("canny"),
     mission_id: Optional[str] = Form(None)
 ):
     """
@@ -473,9 +476,12 @@ async def run_image_processing_pipeline(
             contrast=contrast,
             grayscale=grayscale,
             gaussian_blur=gaussian_blur,
+            median_blur=median_blur,
+            blur_mode=blur_mode,
             sharpen=sharpen,
             denoise=denoise,
-            edge_detection=edge_detection
+            edge_detection=edge_detection,
+            edge_operator=edge_operator
         )
 
         # Save processed result to disk for display and download

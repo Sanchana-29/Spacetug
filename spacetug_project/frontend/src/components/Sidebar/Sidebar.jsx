@@ -37,9 +37,9 @@ function Sidebar({ open, setOpen }) {
       label: "Pose Estimation",
     },
     {
-      path: "/dataset-generator",
+      path: "/image-processing",
       icon: <FaDatabase />,
-      label: "Dataset Generator",
+      label: "Image Processing",
     },
     {
       path: "/telemetry",

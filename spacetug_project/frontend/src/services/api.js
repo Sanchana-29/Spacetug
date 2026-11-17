@@ -264,9 +264,12 @@ export async function runImageProcessingPipelineApi(imageBlob, params = {}) {
   formData.append("contrast", String(params.contrast || 1.0));
   formData.append("grayscale", String(Boolean(params.grayscale)));
   formData.append("gaussian_blur", String(params.gaussian_blur || 0));
+  formData.append("median_blur", String(params.median_blur || 0));
+  formData.append("blur_mode", String(params.blur_mode || "gaussian"));
   formData.append("sharpen", String(Boolean(params.sharpen)));
   formData.append("denoise", String(Boolean(params.denoise)));
   formData.append("edge_detection", String(Boolean(params.edge_detection)));
+  formData.append("edge_operator", String(params.edge_operator || "canny"));
 
   const response = await fetch(`${API_BASE_URL}/api/pipeline/process`, {
     method: "POST",

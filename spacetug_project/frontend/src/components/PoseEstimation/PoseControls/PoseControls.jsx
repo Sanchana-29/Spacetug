@@ -1,4 +1,6 @@
 import "./PoseControls.css";
+import { useSensor } from "../../../context/SensorContext";
+import { FaVideo, FaEye } from "react-icons/fa";
 
 function PoseControls({
   algorithm = "SolvePnP",
@@ -8,8 +10,46 @@ function PoseControls({
   target = "SAT-001",
   setTarget,
 }) {
+  const { sensorThumbnails, liveInferenceData, capturedFrame } = useSensor();
+
+  // Find active RGB-D camera stream frame
+  const rgbdFrame =
+    sensorThumbnails?.["RGB-D Camera"] ||
+    sensorThumbnails?.["RGB-D"] ||
+    liveInferenceData?.lastFrameUrl ||
+    capturedFrame?.imageData;
+
   return (
     <header className="pose-controls-bar">
+      {/* LEFT: SENSOR STREAM INTEGRATION (RGB-D CAMERA FEED) */}
+      <div className="pose-sensor-feed-pill">
+        <div className="sensor-feed-thumb-wrap">
+          {rgbdFrame ? (
+            <img
+              src={rgbdFrame}
+              alt="Live RGB-D Sensor Stream"
+              className="sensor-feed-thumb-img"
+            />
+          ) : (
+            <div className="sensor-feed-thumb-fallback">
+              <FaEye />
+            </div>
+          )}
+          <span className="sensor-live-dot" />
+        </div>
+        <div className="sensor-feed-meta">
+          <div className="sensor-feed-title">
+            <FaVideo className="sensor-icon" />
+            <span>RGB-D SENSOR STREAM</span>
+          </div>
+          <div className="sensor-feed-sub">
+            <span className="sensor-feed-fps">30 FPS</span>
+            <span className="sensor-feed-res">1280×720</span>
+            <span className="sensor-feed-tag">OPTICAL FEED INGEST</span>
+          </div>
+        </div>
+      </div>
+
       <div className="pose-controls-inner">
         <div className="control-item">
           <label>Algorithm</label>

@@ -86,12 +86,12 @@ export function SensorProvider({ children }) {
     const galleryKey = getMissionKey(missionId, "gallery");
 
     const savedFrame = readStorage(frameKey, null);
-    const savedDet = readStorage(detKey, null);
     const savedPose = readStorage(poseKey, null);
     const savedGallery = readStorage(galleryKey, []);
 
     setCapturedFrameState(savedFrame);
-    setDetectionResultState(savedDet);
+    // Explicitly reset detection result on mount / tab switch so no stale bounding boxes appear
+    setDetectionResultState(null);
     setPoseResultState(savedPose);
     setMissionGallery(Array.isArray(savedGallery) ? savedGallery : []);
     setDetectionError(null);
@@ -100,24 +100,6 @@ export function SensorProvider({ children }) {
     if (missionId) {
       (async () => {
         try {
-          if (!savedDet) {
-            const recentDets = await getRecentDetections(5, missionId);
-            if (Array.isArray(recentDets) && recentDets.length > 0) {
-              const latestDet = recentDets[0];
-              const normalized = {
-                detected: latestDet.detected,
-                confidence_score: latestDet.confidence_score,
-                inference_time_ms: latestDet.inference_time_ms,
-                model_used: latestDet.model_used,
-                detections: latestDet.detections || [],
-                image_filename: latestDet.annotated_image_filename || latestDet.raw_image_filename,
-                frameId: latestDet.frame_id,
-              };
-              setDetectionResultState(normalized);
-              writeStorage(detKey, normalized);
-            }
-          }
-
           if (!savedPose) {
             const recentPoses = await getRecentPoses(5, missionId);
             if (Array.isArray(recentPoses) && recentPoses.length > 0) {

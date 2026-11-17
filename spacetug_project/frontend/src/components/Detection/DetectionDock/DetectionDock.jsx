@@ -30,6 +30,9 @@ function DetectionDock() {
   // If in Live Stream mode, dynamically bind to live stream inference engine
   const isLive = detectionMode === "Live Stream";
 
+  // In static mode, only consider detections active if detectionResult is present and detected
+  const hasInferenceRun = isLive || Boolean(detectionResult && detectionResult.detected !== false);
+
   const staticDetections = Array.isArray(detectionResult?.detections)
     ? detectionResult.detections
     : [];
@@ -37,34 +40,34 @@ function DetectionDock() {
     ? liveInferenceData.detections
     : [];
 
-  const detections = isLive ? liveDetections : staticDetections;
+  const detections = isLive ? liveDetections : (hasInferenceRun ? staticDetections : []);
   const primaryDetection = isLive
     ? (liveInferenceData?.primaryDetection || liveDetections[0] || null)
-    : (staticDetections.length > 0 ? staticDetections[0] : null);
+    : (hasInferenceRun && staticDetections.length > 0 ? staticDetections[0] : null);
 
   // Extract bbox coordinates
   const bbox = primaryDetection?.bounding_box;
   const bboxFormatted = bbox
     ? `(${Math.round(bbox.x)}, ${Math.round(bbox.y)}, ${Math.round(bbox.x + bbox.width)}, ${Math.round(bbox.y + bbox.height)})`
-    : (isLive ? "(420, 180, 820, 530)" : "BBox: (420, 180, 820, 530)");
+    : (isLive ? "(420, 180, 820, 530)" : "--");
 
   const inferenceTimeMs = isLive
     ? `${liveInferenceData?.latencyMs || 38} ms`
-    : (detectionResult?.inference_time_ms ? `${Math.round(detectionResult.inference_time_ms)} ms` : "48 ms");
+    : (detectionResult?.inference_time_ms ? `${Math.round(detectionResult.inference_time_ms)} ms` : "--");
 
   const modelInfo = isLive
     ? "YOLOv8n • Real-time Stream"
-    : (detectionResult?.model_used || "YOLOv8n • 1 class");
+    : (detectionResult ? (detectionResult.model_used || "YOLOv8n • 1 class") : "YOLOv8n • Standby");
 
   const targetClass = primaryDetection?.class_name
     ? primaryDetection.class_name.toUpperCase()
-    : "SATELLITE";
+    : (hasInferenceRun && detections.length > 0 ? "SATELLITE" : "--");
 
   const confScoreStr = isLive
     ? `${(liveInferenceData?.confScore || 96.8).toFixed(1)}%`
     : (primaryDetection?.confidence
         ? `${(primaryDetection.confidence * 100).toFixed(1)}%`
-        : "96.7% CONF");
+        : "--");
 
   // Live or static preview image source
   const previewImageSrc = isLive
@@ -315,7 +318,7 @@ function DetectionDock() {
           {/* Exact Bounding Box Coordinates */}
           <div className="bbox-coords-box">
             <span className="bbox-label">BBox Coordinates (X1, Y1, X2, Y2):</span>
-            <strong className="bbox-val">{`BBox: ${bboxFormatted}`}</strong>
+            <strong className="bbox-val">{hasInferenceRun ? `BBox: ${bboxFormatted}` : "--"}</strong>
           </div>
         </div>
 

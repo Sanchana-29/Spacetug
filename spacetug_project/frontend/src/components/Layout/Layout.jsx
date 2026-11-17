@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaInfoCircle, FaChevronLeft } from "react-icons/fa";
 
 import TopBar from "../TopBar/TopBar";
 import Sidebar from "../Sidebar/Sidebar";
 import ObjectInspector from "../ObjectInspector/ObjectInspector";
 import BottomControls from "../BottomControls/BottomControls";
+import { useSimulation } from "../../context/SimulationContext";
 
 import "./Layout.css";
 
@@ -15,7 +16,17 @@ function Layout({
   defaultInspectorOpen = false,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(defaultInspectorOpen);
+  const { inspectorOpen: contextInspectorOpen, setInspectorOpen: setContextInspectorOpen } = useSimulation() || {};
+  const [localInspectorOpen, setLocalInspectorOpen] = useState(defaultInspectorOpen);
+
+  const inspectorOpen = contextInspectorOpen !== undefined ? contextInspectorOpen : localInspectorOpen;
+  const setInspectorOpen = setContextInspectorOpen || setLocalInspectorOpen;
+
+  useEffect(() => {
+    if (defaultInspectorOpen && setContextInspectorOpen) {
+      setContextInspectorOpen(true);
+    }
+  }, [defaultInspectorOpen, setContextInspectorOpen]);
 
   const isInspectorVisible = showInspector && inspectorOpen;
 
