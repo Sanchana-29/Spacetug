@@ -284,6 +284,14 @@ export async function runImageProcessingPipelineApi(imageBlob, params = {}) {
   return response.json();
 }
 
+export async function getPoseLandmarksApi() {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/api/pose/landmarks`, {}, 3000);
+  if (!response.ok) {
+    throw new Error("Failed to fetch landmark definitions");
+  }
+  return response.json();
+}
+
 export async function runPoseEstimationApi(payload) {
   const response = await fetch(`${API_BASE_URL}/api/pose/estimate`, {
     method: "POST",

@@ -20,6 +20,11 @@ import {
   INITIAL_CHASER_POSITION,
   INITIAL_TARGET_POSITION,
 } from "../../../utils/trajectory";
+import {
+  getCameraIntrinsicsMatrix,
+  projectLandmarksToPixels,
+  getOpenCvGroundTruthPose,
+} from "../../../utils/poseGeometry";
 
 function SensorViewer({ sensorData }) {
   const {
@@ -165,6 +170,40 @@ function SensorViewer({ sensorData }) {
           ? `Stereo Camera (${activeEye})`
           : selectedSensor;
 
+      // Extract physical Three.js Camera & Target matrixWorld for authentic 6-DoF ground truth and landmarks
+      let cameraMatrix = null;
+      let targetLandmarks2D = null;
+      let groundTruthPose = null;
+      const vFov = sensorConfig.fov || 60;
+      const imgW = 1280;
+      const imgH = 720;
+
+      if (context?.camera && context?.scene) {
+        context.camera.updateMatrixWorld(true);
+        const cam = context.camera;
+        cameraMatrix = getCameraIntrinsicsMatrix(imgW, imgH, cam.fov || vFov);
+
+        let targetObj = context.scene.getObjectByName("TargetSpacecraftGroup");
+        if (!targetObj) {
+          context.scene.traverse((child) => {
+            if (child.name === "TargetSpacecraftGroup" || child.name === "satellite_root") {
+              targetObj = child;
+            }
+          });
+        }
+
+        if (targetObj) {
+          targetObj.updateMatrixWorld(true);
+          const { projected } = projectLandmarksToPixels(cam, targetObj.matrixWorld, imgW, imgH, 0.0);
+          targetLandmarks2D = projected;
+          groundTruthPose = getOpenCvGroundTruthPose(cam, targetObj.matrixWorld);
+        }
+      }
+
+      if (!cameraMatrix) {
+        cameraMatrix = getCameraIntrinsicsMatrix(imgW, imgH, vFov);
+      }
+
       const framePayload = {
         id: `CAP-${Date.now()}`,
         mission_id: activeMission?.mission_id || null,
@@ -188,7 +227,12 @@ function SensorViewer({ sensorData }) {
           z: Number(targetPosition?.z ?? INITIAL_TARGET_POSITION.z).toFixed(2),
         },
 
-        fov: sensorConfig.fov || 60,
+        fov: vFov,
+        fov_mode: "vertical",
+        image_size: [imgW, imgH],
+        camera_matrix: cameraMatrix,
+        target_landmarks_2d: targetLandmarks2D,
+        ground_truth_pose: groundTruthPose,
         distance: distanceVal.toFixed(2),
         range_m: distanceVal.toFixed(2),
         fps: data?.fps || 60,

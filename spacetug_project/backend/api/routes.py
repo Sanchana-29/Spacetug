@@ -73,6 +73,12 @@ class PoseRequest(BaseModel):
     image_points: Optional[Union[Dict[str, List[float]], List[List[float]]]] = None
     image_size: Optional[List[int]] = None
     fov_degrees: float = 60.0
+    fov_mode: Optional[str] = "vertical"
+    camera_matrix: Optional[List[List[float]]] = None
+    distortion_coeffs: Optional[List[float]] = None
+    method: Optional[str] = "ITERATIVE"
+    use_ransac: Optional[bool] = False
+    ground_truth: Optional[dict] = None
     target_id: Optional[str] = "SAT-001"
     frame_id: Optional[str] = None
     mission_id: Optional[str] = None
@@ -526,6 +532,17 @@ def get_image(filename: str):
 # POSE ESTIMATION ENDPOINTS
 # --------------------------------------------------
 
+@router.get("/pose/landmarks")
+def get_pose_landmarks():
+    """Return single source of truth 3D landmark coordinates and model scale."""
+    from cv.pose_estimation import LANDMARKS_3D, LANDMARK_SCALE, LANDMARK_IDS, LANDMARKS_METADATA
+    return {
+        "landmark_ids": LANDMARK_IDS,
+        "landmark_scale": LANDMARK_SCALE,
+        "landmarks_3d": LANDMARKS_3D,
+        "metadata": LANDMARKS_METADATA,
+    }
+
 @router.post("/pose/estimate")
 def estimate_pose_api(req: PoseRequest):
     try:
@@ -534,6 +551,12 @@ def estimate_pose_api(req: PoseRequest):
             image_points=req.image_points,
             image_size=req.image_size,
             fov_degrees=req.fov_degrees,
+            fov_mode=req.fov_mode or "vertical",
+            camera_matrix=req.camera_matrix,
+            distortion_coeffs=req.distortion_coeffs,
+            method=req.method or "ITERATIVE",
+            use_ransac=bool(req.use_ransac),
+            ground_truth=req.ground_truth,
         )
 
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -541,8 +564,8 @@ def estimate_pose_api(req: PoseRequest):
 
         if result.get("success"):
             pos = result["position"]
-            dist = float(np.sqrt(pos["x"]**2 + pos["y"]**2 + pos["z"]**2))
-            result["distance_m"] = round(dist, 3)
+            dist = result.get("distance_m") or float(np.sqrt(pos["x"]**2 + pos["y"]**2 + pos["z"]**2))
+            result["distance_m"] = round(dist, 4)
 
             db = get_database()
             if db is not None:
@@ -551,20 +574,26 @@ def estimate_pose_api(req: PoseRequest):
                     "mission_id": req.mission_id,
                     "target_id": req.target_id or "SAT-001",
                     "frame_id": req.frame_id,
+                    "method": result.get("method"),
                     "position": result["position"],
                     "attitude": result["attitude"],
+                    "quaternion": result.get("quaternion"),
+                    "rotation_matrix": result.get("rotation_matrix"),
                     "rotation_vector": result["rotation_vector"],
                     "reprojection_rmse_px": result["reprojection_rmse_px"],
                     "distance_m": result["distance_m"],
                     "landmarks_used": result["landmarks_used"],
-                    "fov_degrees": req.fov_degrees
+                    "solve_time_ms": result.get("solve_time_ms"),
+                    "errors_vs_gt": result.get("errors_vs_gt"),
+                    "fov_degrees": req.fov_degrees,
+                    "fov_mode": req.fov_mode
                 }
                 res = db.pose_estimates.insert_one(pose_doc)
                 result["record_id"] = str(res.inserted_id)
 
                 db.activity_logs.insert_one({
                     "action": "POSE_ESTIMATED",
-                    "details": f"6-DoF Pose estimated for {req.target_id}: Range {dist:.2f}m, RMSE: {result['reprojection_rmse_px']:.2f}px",
+                    "details": f"6-DoF Pose estimated ({result.get('method')}): Range {dist:.2f}m, RMSE: {result['reprojection_rmse_px']:.3f}px, Time: {result.get('solve_time_ms')}ms",
                     "timestamp": now_iso
                 })
                 if req.mission_id:
@@ -572,7 +601,7 @@ def estimate_pose_api(req: PoseRequest):
                         "mission_id": req.mission_id,
                         "level": "INFO",
                         "event": "POSE_CALCULATED",
-                        "message": f"6-DoF Pose for {req.target_id} solved: Range={dist:.2f}m",
+                        "message": f"6-DoF Pose solved ({result.get('method')}): Range={dist:.2f}m, RMSE={result['reprojection_rmse_px']}px",
                         "timestamp": now_iso
                     })
 

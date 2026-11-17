@@ -378,6 +378,8 @@ function SensorTargetSatellite({ sensorMode }) {
       groupRef.current.quaternion.copy(targetQuaternion);
     }
 
+    groupRef.current.updateMatrixWorld(true);
+
     // Direct shader uniform update without React re-renders
     if (sensorMode === "Thermal Camera") {
       const elapsedTime = state.clock.getElapsedTime();
@@ -390,7 +392,7 @@ function SensorTargetSatellite({ sensorMode }) {
   });
 
   return (
-    <group ref={groupRef} scale={0.08}>
+    <group ref={groupRef} name="TargetSpacecraftGroup" scale={0.08}>
       <primitive object={clonedScene} />
     </group>
   );
