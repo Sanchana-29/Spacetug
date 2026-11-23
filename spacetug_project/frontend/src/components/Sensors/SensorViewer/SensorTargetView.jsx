@@ -1,10 +1,46 @@
-import React, { memo } from "react";
+import React, { memo, Suspense } from "react";
 import { Canvas } from "@react-three/fiber";
 import { useSimulation } from "../../../context/SimulationContext";
 import SensorSceneWorld from "./SensorSceneWorld";
 import DepthMapViewer from "./DepthMapViewer";
 import { getSensorToTargetDistance } from "./sensorConstants";
 import "./SensorViewer.css";
+
+function SensorLoadingFallback() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "radial-gradient(ellipse at center, #0d192e 0%, #060b14 100%)",
+        color: "#38bdf8",
+        fontFamily: "'Orbitron', monospace",
+        fontSize: "12px",
+        letterSpacing: "0.1em",
+        zIndex: 5,
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          width: "28px",
+          height: "28px",
+          border: "2px solid rgba(56, 189, 248, 0.2)",
+          borderTopColor: "#38bdf8",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+          marginBottom: "10px",
+        }}
+      />
+      <span>INITIALIZING SENSOR FEED...</span>
+      <span style={{ fontSize: "10px", color: "#64748b", marginTop: "4px" }}>CALIBRATING OPTICAL DETECTOR</span>
+    </div>
+  );
+}
 
 /**
  * Sensor Canvas Container (memoized to isolate 3D WebGL rendering from HTML HUD updates)
@@ -19,26 +55,28 @@ export const SensorCanvas = memo(function SensorCanvas({
   viewMode = "CHASER",
 }) {
   return (
-    <div className="sensor-camera-canvas" id={canvasId}>
-      <Canvas
-        shadows
-        camera={{ fov: 60, near: 0.1, far: 300 }}
-        dpr={isMini ? 1 : [1, 2]}
-        gl={{
-          preserveDrawingBuffer: true,
-          antialias: !isMini,
-          powerPreference: "high-performance",
-        }}
-      >
-        <SensorSceneWorld
-          sensor={sensor}
-          subType={subType}
-          onGlReady={onGlReady}
-          onFrameRendered={onFrameRendered}
-          isMini={isMini}
-          viewMode={viewMode}
-        />
-      </Canvas>
+    <div className="sensor-camera-canvas" id={canvasId} style={{ position: "relative" }}>
+      <Suspense fallback={<SensorLoadingFallback />}>
+        <Canvas
+          shadows
+          camera={{ fov: 60, near: 0.1, far: 300 }}
+          dpr={isMini ? 1 : [1, 2]}
+          gl={{
+            preserveDrawingBuffer: true,
+            antialias: !isMini,
+            powerPreference: "high-performance",
+          }}
+        >
+          <SensorSceneWorld
+            sensor={sensor}
+            subType={subType}
+            onGlReady={onGlReady}
+            onFrameRendered={onFrameRendered}
+            isMini={isMini}
+            viewMode={viewMode}
+          />
+        </Canvas>
+      </Suspense>
     </div>
   );
 });

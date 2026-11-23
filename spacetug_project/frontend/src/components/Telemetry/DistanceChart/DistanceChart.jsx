@@ -17,20 +17,20 @@ function DistanceChart() {
 
   return (
     <div className="chart-card">
-      <div className="chart-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div className="chart-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 14px", flexShrink: 0 }}>
         <div>
-          <h3>Relative Distance</h3>
-          <span style={{ fontSize: "11px", color: "#64748b" }}>Target − Chaser | R = √(dx² + dy² + dz²)</span>
+          <h3 style={{ margin: 0, fontSize: "12px", fontFamily: "Orbitron, sans-serif" }}>Relative Distance</h3>
+          <span style={{ fontSize: "10px", color: "#64748b" }}>Target − Chaser | R = √(dx² + dy² + dz²)</span>
         </div>
         <div style={{ textAlign: "right" }}>
-          <span style={{ fontSize: "20px", fontWeight: "bold", color: "#38bdf8", fontFamily: "monospace" }}>
+          <span style={{ fontSize: "16px", fontWeight: "bold", color: "#38bdf8", fontFamily: "monospace" }}>
             {latestVal}
           </span>
-          <div style={{ fontSize: "10px", color: "#64748b" }}>CURRENT RANGE</div>
+          <div style={{ fontSize: "9px", color: "#64748b" }}>CURRENT RANGE</div>
         </div>
       </div>
 
-      <div style={{ height: "240px", width: "100%", padding: "10px" }}>
+      <div style={{ flex: 1, minHeight: 0, width: "100%", padding: "4px 8px" }}>
         <StaticLineChart
           data={distanceData}
           yKey="distance"

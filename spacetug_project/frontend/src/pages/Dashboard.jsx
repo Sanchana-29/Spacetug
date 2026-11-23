@@ -5,7 +5,6 @@ import { getSystemStatus } from "../services/api.js";
 import { useSimulation } from "../context/SimulationContext";
 import { useMission } from "../context/MissionContext";
 import { FaEye, FaVideo, FaCrosshairs } from "react-icons/fa";
-import CollisionRiskBadge from "../components/Dashboard/CollisionRiskBadge";
 
 function Dashboard() {
   const [backendStatus, setBackendStatus] = useState("Connecting...");
@@ -61,8 +60,6 @@ function Dashboard() {
         }}
       >
         <Scene />
-
-        <CollisionRiskBadge />
 
         {/* Backend Status with Active Mission indicator */}
         <div

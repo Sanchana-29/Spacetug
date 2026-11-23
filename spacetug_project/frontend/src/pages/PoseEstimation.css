@@ -5,18 +5,18 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 18px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  gap: 10px;
+  padding: 10px 14px;
+  overflow: hidden;
 }
 
 .pose-middle {
   display: grid;
   grid-template-columns: 1fr 1.6fr 1fr;
-  gap: 14px;
+  gap: 10px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .pose-left-col,
@@ -26,13 +26,18 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Responsive adjustment for mid-sized screens */
 @media (max-width: 1200px) {
+  .pose-page {
+    overflow-y: auto;
+  }
   .pose-middle {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto auto;
-    overflow-y: auto;
+    overflow-y: visible;
   }
 }

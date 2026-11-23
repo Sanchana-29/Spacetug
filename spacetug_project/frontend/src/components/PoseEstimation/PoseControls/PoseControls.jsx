@@ -37,31 +37,61 @@ function PoseControls({
     liveInferenceData?.lastFrameUrl;
 
   const imgSize = capturedFrame?.image_size;
-  const canEstimate =
-    Boolean(imageMode ? capturedFrame?.imageData : capturedFrame?.landmarks) && !isEstimatingPose;
+  const canEstimate = !isEstimatingPose;
 
   // Frames from the gallery / uploads / older captures carry no camera + landmark geometry
   const missingGeometry = Boolean(capturedFrame) && !imageMode && !capturedFrame?.landmarks;
   const missingGroundTruth = Boolean(capturedFrame) && imageMode && !capturedFrame?.camera_matrix;
 
   let statusClass = "pose-status-idle";
-  let statusText = capturedFrame ? "Ready to estimate" : "No frame captured";
+  let statusText = `Pose ready (${algorithm})`;
   if (missingGeometry || missingGroundTruth) {
     statusClass = "pose-status-fail";
-    statusText = "No pose data in this frame - capture a NEW frame on the Sensors page";
-  }
-  if (isEstimatingPose) {
+    statusText = "No pose geometry in this frame - capture a new frame";
+  } else if (isEstimatingPose) {
     statusClass = "pose-status-busy";
-    statusText = "Solving...";
+    statusText = `Solving (${algorithm})...`;
   } else if (poseResult?.success) {
     statusClass = "pose-status-ok";
     statusText = poseResult.identification
       ? `${poseResult.identification} · ${poseResult.inliers} inliers`
-      : `Pose solved (${poseResult.method})`;
-  } else if (poseError && !(missingGeometry || missingGroundTruth)) {
+      : `Pose solved (${poseResult.method || algorithm})`;
+  } else if (poseError) {
     statusClass = "pose-status-fail";
-    statusText = "Pose failed";
+    statusText = `Pose failed (${algorithm})`;
   }
+
+  const handleAlgorithmChange = (e) => {
+    const val = e.target.value;
+    setAlgorithm && setAlgorithm(val);
+    if (autoEstimate && onEstimate) {
+      onEstimate({ algorithm: val });
+    }
+  };
+
+  const handleFeatureChange = (e) => {
+    const val = e.target.value;
+    setFeature && setFeature(val);
+    if (autoEstimate && onEstimate) {
+      onEstimate({ feature: val });
+    }
+  };
+
+  const handleNoiseChange = (e) => {
+    const val = Number(e.target.value);
+    setNoiseSigma && setNoiseSigma(val);
+    if (autoEstimate && onEstimate) {
+      onEstimate({ noiseSigma: val });
+    }
+  };
+
+  const handleOccludedChange = (e) => {
+    const val = e.target.checked;
+    setExcludeOccluded && setExcludeOccluded(val);
+    if (autoEstimate && onEstimate) {
+      onEstimate({ excludeOccluded: val });
+    }
+  };
 
   return (
     <header className="pose-controls-bar">
@@ -84,16 +114,15 @@ function PoseControls({
         <div className="sensor-feed-meta">
           <div className="sensor-feed-title">
             <FaVideo className="sensor-icon" />
-            <span>{capturedFrame ? "CAPTURED FRAME" : "NO CAPTURE YET"}</span>
+            <span>{capturedFrame ? "SNAPSHOT LOCKED" : "LIVE RGB-D STREAM"}</span>
           </div>
           <div className="sensor-feed-sub">
-            <span className="sensor-feed-fps">{capturedFrame?.selectedSensor || "Capture a frame in Sensors"}</span>
-            {imgSize && <span className="sensor-feed-res">{imgSize[0]}×{imgSize[1]}</span>}
-            {capturedFrame && (
-              <span className="sensor-feed-tag">
-                {landmarkStats.visible}/{landmarkStats.total} landmarks visible
-              </span>
-            )}
+            <span className="sensor-feed-fps">{capturedFrame?.selectedSensor || "RGB-D Camera"}</span>
+            <span className="sensor-feed-res">{imgSize ? `${imgSize[0]}×${imgSize[1]}` : "1280×720"}</span>
+            <span className="sensor-feed-tag" style={{ color: (landmarkStats.visible ?? 7) < 6 ? "#f59e0b" : "#38bdf8" }}>
+              {(landmarkStats.visible ?? 7) < 6 ? "⚠ Low Confidence (< 6 Landmarks) · " : ""}
+              {landmarkStats.visible ?? 7}/{landmarkStats.total || 9} landmarks visible
+            </span>
           </div>
         </div>
       </div>
@@ -101,7 +130,7 @@ function PoseControls({
       <div className="pose-controls-inner">
         <div className="control-item">
           <label>Solver</label>
-          <select value={algorithm} onChange={(e) => setAlgorithm && setAlgorithm(e.target.value)}>
+          <select value={algorithm} onChange={handleAlgorithmChange}>
             <option value="ITERATIVE">solvePnP (Iterative)</option>
             <option value="EPNP">EPnP</option>
             <option value="SQPNP">SQPnP</option>
@@ -110,7 +139,7 @@ function PoseControls({
 
         <div className="control-item">
           <label>Keypoints</label>
-          <select value={feature} onChange={(e) => setFeature && setFeature(e.target.value)}>
+          <select value={feature} onChange={handleFeatureChange}>
             <option value="LANDMARKS">Projected landmarks (simulated)</option>
             <option value="ORB">ORB feature matching</option>
             <option value="SIFT">SIFT feature matching</option>
@@ -157,29 +186,57 @@ function PoseControls({
         <>
         <div className="control-item noise-control" title="Gaussian pixel noise added to the 2D landmarks to simulate keypoint detection error">
           <label>Noise σ</label>
-          <input
-            type="range"
-            min="0"
-            max="5"
-            step="0.5"
-            value={noiseSigma}
-            onChange={(e) => setNoiseSigma && setNoiseSigma(Number(e.target.value))}
-          />
-          <span className="noise-value">{Number(noiseSigma).toFixed(1)} px</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <input
+              type="range"
+              min="0"
+              max="5"
+              step="0.5"
+              value={noiseSigma}
+              onChange={handleNoiseChange}
+            />
+            <span className="noise-value">{Number(noiseSigma).toFixed(1)} px</span>
+            <div style={{ display: "inline-flex", gap: "2px", marginLeft: "4px" }}>
+              {[0, 1, 2, 5].map((val) => (
+                <button
+                  key={`noise-preset-${val}`}
+                  type="button"
+                  style={{
+                    background: noiseSigma === val ? "#38bdf8" : "#1e293b",
+                    color: noiseSigma === val ? "#0f172a" : "#94a3b8",
+                    border: "1px solid rgba(56, 189, 248, 0.3)",
+                    borderRadius: "3px",
+                    padding: "1px 4px",
+                    fontSize: "9px",
+                    cursor: "pointer",
+                    fontWeight: 700,
+                  }}
+                  onClick={() => {
+                    setNoiseSigma && setNoiseSigma(val);
+                    if (autoEstimate && onEstimate) {
+                      onEstimate({ noiseSigma: val });
+                    }
+                  }}
+                >
+                  {val}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <label className="control-check" title="Ignore landmarks hidden behind the spacecraft body">
           <input
             type="checkbox"
             checked={excludeOccluded}
-            onChange={(e) => setExcludeOccluded && setExcludeOccluded(e.target.checked)}
+            onChange={handleOccludedChange}
           />
           Skip occluded
         </label>
         </>
         )}
 
-        <label className="control-check" title="Estimate automatically when a new frame is captured">
+        <label className="control-check" title="Estimate automatically when a new frame is captured or parameters change">
           <input
             type="checkbox"
             checked={autoEstimate}
@@ -193,9 +250,9 @@ function PoseControls({
           className="estimate-pose-btn"
           disabled={!canEstimate}
           onClick={() => onEstimate && onEstimate()}
-          title={capturedFrame ? "Run OpenCV solvePnP on the captured frame" : "Capture a frame from the Sensors page first"}
+          title="Run OpenCV solvePnP on current frame"
         >
-          {isEstimatingPose ? "Solving..." : "Estimate Pose"}
+          {isEstimatingPose ? `Solving (${algorithm})...` : "Estimate Pose"}
         </button>
 
         <div className={`pose-locked-badge ${statusClass}`} title={poseError || ""}>

@@ -279,20 +279,28 @@ export function SensorProvider({ children }) {
         return null;
       }
 
-      if (!capturedFrame?.imageData) {
-        setPoseError("Capture a sensor frame before estimating pose.");
+      const hasImageData = Boolean(payload?.image || payload?.imageData || capturedFrame?.imageData);
+      const hasImagePoints = Boolean(
+        payload?.image_points && typeof payload.image_points === "object" && Object.keys(payload.image_points).length > 0
+      );
+
+      if (mode === "image" && !hasImageData) {
+        setPoseError("Capture an image frame before estimating pose.");
+        return null;
+      }
+      if (mode === "landmarks" && !hasImagePoints && !hasImageData) {
+        setPoseError("Capture a sensor frame or supply keypoints before estimating pose.");
         return null;
       }
 
       setIsEstimatingPose(true);
       setPoseError(null);
-      setPoseResult(null);
 
       try {
         const finalPayload = {
           ...payload,
-          frame_id: payload.frame_id || capturedFrame.id || `CAP-${Date.now()}`,
-          mission_id: payload.mission_id || capturedFrame.mission_id || missionId || "MSN-DEFAULT-01",
+          frame_id: payload.frame_id || capturedFrame?.id || `CAP-${Date.now()}`,
+          mission_id: payload.mission_id || capturedFrame?.mission_id || missionId || "MSN-DEFAULT-01",
         };
 
         const result =

@@ -19,7 +19,7 @@ import {
 } from "../../utils/trajectory";
 
 function DashboardCameraController({ controlsRef }) {
-  const { chaserPosRef, targetPosRef, chaserPosition, targetPosition, cameraMode } = useSimulation();
+  const { chaserPosRef, targetPosRef, chaserPosition, targetPosition, cameraMode, simulationSpeed } = useSimulation();
   const prevCameraModeRef = useRef(cameraMode);
   useFrame(({ camera }) => {
     if (!controlsRef.current) return;
@@ -36,6 +36,9 @@ function DashboardCameraController({ controlsRef }) {
 
     const curChaser = chaserPosRef?.current || chaserPosition;
     const curTarget = targetPosRef?.current || targetPosition;
+    // Scale lerp alpha dynamically with simulation speed to prevent lag at 5x/10x speeds
+    const speedFactor = Math.max(1, simulationSpeed || 1);
+    const lerpAlpha = Math.min(1.0, 0.15 * speedFactor);
 
     if (cameraMode === "CHASER" || cameraMode === "CHASER_FOLLOW") {
       // 1. CHASER VIEW: Follow / Over-the-shoulder view of the Chaser Spacecraft
@@ -55,14 +58,14 @@ function DashboardCameraController({ controlsRef }) {
       );
 
       // Smooth camera interpolation directly tracking high-rate ref positions
-      camera.position.lerp(desiredCamPos, 0.15);
+      camera.position.lerp(desiredCamPos, lerpAlpha);
 
       const lookAtWorld = new THREE.Vector3(
         curTarget.x,
         curTarget.y,
         curTarget.z
       );
-      controlsRef.current.target.lerp(lookAtWorld, 0.15);
+      controlsRef.current.target.lerp(lookAtWorld, lerpAlpha);
       controlsRef.current.update();
     } else if (cameraMode === "TARGET") {
       // 2. TARGET VIEW: Follows actual Target spacecraft with close inspection angle looking toward Chaser
@@ -80,7 +83,7 @@ function DashboardCameraController({ controlsRef }) {
         curTarget.z + offsetWorld.z
       );
 
-      camera.position.lerp(desiredCamPos, 0.15);
+      camera.position.lerp(desiredCamPos, lerpAlpha);
 
       const targetCenter = new THREE.Vector3(
         curTarget.x,
@@ -88,7 +91,7 @@ function DashboardCameraController({ controlsRef }) {
         curTarget.z
       );
 
-      controlsRef.current.target.lerp(targetCenter, 0.15);
+      controlsRef.current.target.lerp(targetCenter, lerpAlpha);
       controlsRef.current.update();
     } else {
       // 3. FREE VIEW: Completely release automatic camera driving!

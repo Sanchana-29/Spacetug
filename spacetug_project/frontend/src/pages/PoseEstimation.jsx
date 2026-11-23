@@ -113,55 +113,80 @@ function PoseEstimation() {
     return { total: ids.length, inImage, visible };
   }, [capturedFrame]);
 
-  const handleEstimate = useCallback(async () => {
-    if (!capturedFrame) return null;
-    const gtPose = capturedFrame.ground_truth_pose;
+  const latestLiveFrameRef = useRef(null);
+  const handleLiveSampleUpdate = useCallback((frame) => {
+    latestLiveFrameRef.current = frame;
+  }, []);
 
-    if (feature === "ORB" || feature === "SIFT") {
-      setLastImagePoints(null);
-      return runPoseEstimation(
-        {
-          image: capturedFrame.imageData,
-          camera_matrix: capturedFrame.camera_matrix,
-          feature,
-          method: algorithm,
-          bbox: detectionBBox,
-          // leave-one-out: never match the frame against itself if it is in the library
-          exclude_view_id: String(capturedFrame.id),
-          ground_truth: gtPose
-            ? { position: gtPose.position, rotation_matrix: gtPose.rotation_matrix }
-            : null,
-          sensor_name: capturedFrame.selectedSensor,
-          target_id: target,
-          min_inliers: featureMinInliers,
-          min_inlier_ratio: featureMinRatio,
-        },
-        "image"
-      );
-    }
+  const handleEstimate = useCallback(
+    async (overrides = {}) => {
+      const activeAlgo = overrides.algorithm || algorithm;
+      const activeFeature = overrides.feature || feature;
+      const activeNoise = overrides.noiseSigma !== undefined ? overrides.noiseSigma : noiseSigma;
+      const activeExclude = overrides.excludeOccluded !== undefined ? overrides.excludeOccluded : excludeOccluded;
 
-    const imagePoints = buildImagePoints(capturedFrame, {
-      noiseSigmaPx: noiseSigma,
+      let targetFrame = overrides.frame || capturedFrame || latestLiveFrameRef.current;
+      if (!targetFrame) return null;
+
+      const gtPose = targetFrame.ground_truth_pose;
+
+      if (activeFeature === "ORB" || activeFeature === "SIFT") {
+        setLastImagePoints(null);
+        return runPoseEstimation(
+          {
+            image: targetFrame.imageData,
+            camera_matrix: targetFrame.camera_matrix,
+            feature: activeFeature,
+            method: activeAlgo,
+            bbox: detectionBBox,
+            exclude_view_id: String(targetFrame.id),
+            ground_truth: gtPose
+              ? { position: gtPose.position, rotation_matrix: gtPose.rotation_matrix }
+              : null,
+            sensor_name: targetFrame.selectedSensor,
+            target_id: target,
+            min_inliers: featureMinInliers,
+            min_inlier_ratio: featureMinRatio,
+          },
+          "image"
+        );
+      }
+
+      const imagePoints = buildImagePoints(targetFrame, {
+        noiseSigmaPx: activeNoise,
+        excludeOccluded: activeExclude,
+      });
+      setLastImagePoints(imagePoints);
+
+      const gt = targetFrame.ground_truth_pose;
+      return runPoseEstimation({
+        image_points: imagePoints,
+        image_size: targetFrame.image_size,
+        camera_matrix: targetFrame.camera_matrix,
+        fov_degrees: Number(targetFrame.fov) || 60,
+        fov_mode: "vertical",
+        method: activeAlgo,
+        use_ransac: false,
+        noise_sigma_px: Number(activeNoise) || 0,
+        keypoint_source: activeFeature,
+        sensor_name: targetFrame.selectedSensor,
+        ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
+        target_id: target,
+      });
+    },
+    [
+      algorithm,
+      feature,
+      noiseSigma,
       excludeOccluded,
-    });
-    setLastImagePoints(imagePoints);
-
-    const gt = capturedFrame.ground_truth_pose;
-    return runPoseEstimation({
-      image_points: imagePoints,
-      image_size: capturedFrame.image_size,
-      camera_matrix: capturedFrame.camera_matrix,
-      fov_degrees: Number(capturedFrame.fov) || 60,
-      fov_mode: "vertical",
-      method: algorithm,
-      use_ransac: false,
-      noise_sigma_px: Number(noiseSigma) || 0,
-      keypoint_source: feature,
-      sensor_name: capturedFrame.selectedSensor,
-      ground_truth: gt ? { position: gt.position, rotation_matrix: gt.rotation_matrix } : null,
-      target_id: target,
-    });
-  }, [capturedFrame, noiseSigma, excludeOccluded, algorithm, feature, target, runPoseEstimation, detectionBBox, featureMinInliers, featureMinRatio]);
+      capturedFrame,
+      target,
+      runPoseEstimation,
+      detectionBBox,
+      featureMinInliers,
+      featureMinRatio,
+    ]
+  );
 
   // Auto-estimate once for every newly captured frame
   const lastAutoFrameRef = useRef(null);
@@ -213,6 +238,8 @@ function PoseEstimation() {
               isLiveStreaming={isLiveStreaming}
               setIsLiveStreaming={setIsLiveStreaming}
               lastImagePoints={lastImagePoints}
+              onEstimate={handleEstimate}
+              onLiveSampleUpdate={handleLiveSampleUpdate}
             />
           </div>
 

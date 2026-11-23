@@ -1,6 +1,6 @@
 import { usePerception } from "../../context/PerceptionContext";
 
-const COLORS = { LOW: "#22c55e", MEDIUM: "#f59e0b", HIGH: "#ef4444" };
+const COLORS = { LOW: "#22c55e", "DOCKING CORRIDOR": "#38bdf8", MEDIUM: "#f59e0b", HIGH: "#ef4444" };
 
 /** Small Dashboard overlay with the latest collision assessment from the live perception loop. */
 function CollisionRiskBadge() {

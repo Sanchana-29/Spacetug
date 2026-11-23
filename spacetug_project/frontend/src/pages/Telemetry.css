@@ -1,106 +1,286 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
-.telemetry-page {
-  position: relative;
-  z-index: 1;
-  min-height: 100%;
+.telemetry-viewport-container {
+  height: 100%;
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: auto auto minmax(220px, 1fr) minmax(220px, 1fr) auto;
-  gap: 18px;
-  padding: 20px 20px 50px 20px;
-  overflow-y: auto;
-  align-content: start;
-}
-
-.telemetry-controls,
-.live-metrics,
-.telemetry-logs {
-  grid-column: 1 / -1;
-  min-width: 0;
-}
-
-.telemetry-controls {
-  transition: margin-left 0.25s ease;
-}
-
-.layout.sidebar-collapsed .telemetry-controls {
-  margin-left: 56px;
-}
-
-/* Keep chart cards aligned */
-.telemetry-page .chart-card {
-  box-sizing: border-box;
-  height: 100% !important;
-  min-height: 220px;
-  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px;
   overflow: hidden;
+  position: relative;
 }
 
-.telemetry-page .chart-placeholder {
-  flex: 1;
-  min-height: 150px;
-  height: auto !important;
-  background-image:
-    linear-gradient(rgba(49, 65, 93, 0.4) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(49, 65, 93, 0.4) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-position: center;
+/* COMPACT TOOLBAR */
+.telemetry-compact-toolbar {
+  background: rgba(9, 16, 32, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+
+.toolbar-left-group,
+.toolbar-mid-kpis,
+.toolbar-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.telemetry-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(13, 24, 46, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  letter-spacing: 2px;
-  font-weight: bold;
+  color: #cbd5e1;
 }
 
-.telemetry-page .chart-placeholder h2 {
-  display: none !important;
+.telemetry-pill .pill-icon {
+  color: #38bdf8;
+  font-size: 12px;
 }
 
-/* Tablet */
-@media (max-width: 1100px) {
-  .telemetry-page {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .telemetry-page .chart-card {
-    min-height: 220px;
-  }
+.telemetry-pill strong {
+  color: #38bdf8;
+  font-weight: 700;
 }
 
-/* Mobile */
-@media (max-width: 700px) {
-  .telemetry-page {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto;
-    gap: 14px;
-    padding: 12px;
-  }
-
-  .telemetry-page .chart-card {
-    min-height: 240px;
-  }
-
-  .layout.sidebar-collapsed .telemetry-controls {
-    margin-left: 0;
-  }
-}
-
-.recording-status {
-  border: none;
-  background: transparent;
+.rate-select {
+  background: rgba(6, 11, 23, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #f1f5f9;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
   cursor: pointer;
-  font: inherit;
+  outline: none;
 }
 
-.status.active {
-  color: #34d399;
+.telemetry-rec-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(100, 116, 139, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.status.inactive {
+.telemetry-rec-btn .rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #64748b;
+}
+
+.telemetry-rec-btn.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+}
+
+.telemetry-rec-btn.active .rec-dot {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+  animation: pulse-rec 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.telemetry-sim-status {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.telemetry-sim-status.running { color: #10b981; }
+.telemetry-sim-status.paused { color: #f59e0b; }
+
+/* KPI CHIPS */
+.kpi-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(13, 24, 46, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
   color: #94a3b8;
 }
 
-.recording-status.active {
-  color: #f87171;
+.kpi-icon.cyan { color: #38bdf8; }
+.kpi-icon.yellow { color: #f59e0b; }
+.kpi-icon.green { color: #10b981; }
+
+.kpi-chip strong {
+  color: #f1f5f9;
+  font-weight: 700;
+}
+
+/* ACTION BUTTONS */
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+.action-btn.logs-btn.active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+/* 2x2 CORE TELEMETRY CHARTS GRID */
+.telemetry-core-charts-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  overflow: hidden;
+}
+
+.telemetry-core-charts-grid .chart-card {
+  background: rgba(9, 16, 32, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100% !important;
+  min-height: 0 !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.telemetry-core-charts-grid .chart-header {
+  height: 42px;
+  background: rgba(17, 26, 45, 0.95);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 14px;
+  flex-shrink: 0;
+}
+
+/* LOGS DRAWER BACKDROP & PANEL */
+.telemetry-logs-drawer-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.telemetry-logs-drawer {
+  width: 500px;
+  max-width: 90%;
+  height: 100%;
+  background: rgba(9, 16, 32, 0.96);
+  border-left: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: -4px 0 25px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  animation: slideDrawer 0.25s ease-out;
+}
+
+@keyframes slideDrawer {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.drawer-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.drawer-header h4 {
+  margin: 0;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  color: #38bdf8;
+  letter-spacing: 0.8px;
+}
+
+.drawer-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.drawer-close-btn:hover {
+  color: #ef4444;
+}
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+@media (max-width: 900px) {
+  .telemetry-core-charts-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(4, 220px);
+    overflow-y: auto;
+  }
 }

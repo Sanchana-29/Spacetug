@@ -34,7 +34,12 @@ def assess_collision(r, v, safety_radius_m: float = 2.0, horizon_s: float = 60.0
     t_cpa = max(0.0, -rv / (speed * speed)) if speed > 1e-9 else 0.0
     d_cpa = float(np.linalg.norm(r + v * t_cpa))
 
-    if d_cpa < safety_radius_m and t_cpa < horizon_s:
+    # Docking Corridor: when performing planned close proximity approach (e.g. range <= 5.0m)
+    # with controlled low closing velocity (<= 0.25 m/s), designate as nominal "DOCKING CORRIDOR"
+    # rather than flagging false-positive HIGH risk.
+    if rng <= 5.0 and 0.0 < closing <= 0.25 and d_cpa < safety_radius_m:
+        risk = "DOCKING CORRIDOR"
+    elif d_cpa < safety_radius_m and t_cpa < horizon_s:
         risk = "HIGH"
     elif (d_cpa < 2.0 * safety_radius_m and t_cpa < 2.0 * horizon_s) or rng < safety_radius_m:
         risk = "MEDIUM"

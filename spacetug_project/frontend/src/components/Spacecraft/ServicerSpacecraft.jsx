@@ -198,18 +198,33 @@ function ServicerSpacecraft() {
       </mesh>
 
       {/* ========================= */}
-      {/* THRUSTER */}
+      {/* THRUSTER BELLS & RADIATOR PANELS */}
       {/* ========================= */}
+      {/* Primary Central Thruster Bell */}
       <mesh position={[0, 0, 1.18]}>
         <cylinderGeometry
           args={[0.22, 0.28, 0.25, 24]}
           rotation={[Math.PI / 2, 0, 0]}
         />
         <meshStandardMaterial
-          color="#697586"
-          metalness={0.75}
-          roughness={0.3}
+          color="#334155"
+          metalness={0.85}
+          roughness={0.2}
         />
+      </mesh>
+      {/* Secondary RCS Thrusters */}
+      <mesh position={[-0.7, 0, 0.8]}>
+        <cylinderGeometry args={[0.06, 0.09, 0.12, 16]} rotation={[0, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.3} />
+      </mesh>
+      <mesh position={[0.7, 0, 0.8]}>
+        <cylinderGeometry args={[0.06, 0.09, 0.12, 16]} rotation={[0, 0, -Math.PI / 2]} />
+        <meshStandardMaterial color="#64748b" metalness={0.8} roughness={0.3} />
+      </mesh>
+      {/* Radiator Panels on Upper Hull */}
+      <mesh position={[0, 0.42, 0]}>
+        <boxGeometry args={[1.1, 0.04, 1.4]} />
+        <meshStandardMaterial color="#e2e8f0" metalness={0.4} roughness={0.5} />
       </mesh>
 
       {/* ========================= */}

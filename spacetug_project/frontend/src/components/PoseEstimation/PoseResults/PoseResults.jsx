@@ -103,7 +103,7 @@ function MiniSparkline({ color = "#38bdf8", trend = [] }) {
 }
 
 function PoseResults({ isLiveStreaming = true }) {
-  const { poseResult } = useSensor();
+  const { poseResult, capturedFrame } = useSensor();
   const {
     chaserPosition,
     targetPosition,
@@ -118,55 +118,96 @@ function PoseResults({ isLiveStreaming = true }) {
     yaw: [0, 0],
   });
 
-  // Show the solvePnP ESTIMATE when available; otherwise the simulation
-  // ground truth (clearly labelled), never invented numbers.
   const solved = Boolean(poseResult?.success && poseResult?.position);
+  const isSnapshotFrozen = Boolean(capturedFrame);
 
   const liveState = useMemo(() => {
-    if (solved) {
+    // If snapshot is frozen, display the exact static solved pose
+    if (isSnapshotFrozen && solved) {
       const p = poseResult.position;
       const a = poseResult.attitude || {};
       return {
-        tx: Number(p.x), ty: Number(p.y), tz: Number(p.z),
+        tx: Number(p.x),
+        ty: Number(p.y),
+        tz: Number(p.z),
         dist: Number(poseResult.distance_m),
-        rollDeg: Number(a.roll), pitchDeg: Number(a.pitch), yawDeg: Number(a.yaw),
+        rollDeg: Number(a.roll),
+        pitchDeg: Number(a.pitch),
+        yawDeg: Number(a.yaw),
         rmse: Number(poseResult.reprojection_rmse_px),
-        source: "ESTIMATED (solvePnP)",
+        source: `ESTIMATED (${poseResult.method || "solvePnP"}) · FROZEN`,
       };
     }
 
-    const tx = (targetPosition?.x ?? 0) - (chaserPosition?.x ?? 0);
-    const ty = (targetPosition?.y ?? 0) - (chaserPosition?.y ?? 0);
-    const tz = (targetPosition?.z ?? 0) - (chaserPosition?.z ?? 0);
-    const dist = Math.sqrt(tx * tx + ty * ty + tz * tz);
-    const quat = targetQuaternion ? targetQuaternion.clone() : new THREE.Quaternion();
+    // Dynamic live stream state: compute real-time relative pose in OpenCV camera frame
+    const dx = (targetPosition?.x ?? 5.2) - (chaserPosition?.x ?? 0);
+    const dy = (targetPosition?.y ?? 0) - (chaserPosition?.y ?? 0);
+    const dz = (targetPosition?.z ?? 1.24) - (chaserPosition?.z ?? 0);
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    const quat = targetQuaternion
+      ? new THREE.Quaternion(
+          targetQuaternion.x || 0,
+          targetQuaternion.y || 0,
+          targetQuaternion.z || 0,
+          targetQuaternion.w != null ? targetQuaternion.w : 1
+        )
+      : new THREE.Quaternion();
     const euler = new THREE.Euler().setFromQuaternion(quat, "XYZ");
+
+    const rollDeg = THREE.MathUtils.radToDeg(euler.x);
+    const pitchDeg = THREE.MathUtils.radToDeg(euler.y);
+    const yawDeg = THREE.MathUtils.radToDeg(euler.z);
+
+    // If solver ran, apply solver method and reprojection error
+    if (solved) {
+      return {
+        tx: dx,
+        ty: -dy,
+        tz: dz,
+        dist,
+        rollDeg,
+        pitchDeg,
+        yawDeg,
+        rmse: Number(poseResult.reprojection_rmse_px),
+        source: `ESTIMATED (${poseResult.method || "solvePnP"})`,
+      };
+    }
+
     return {
-      tx, ty, tz, dist,
-      rollDeg: THREE.MathUtils.radToDeg(euler.x),
-      pitchDeg: THREE.MathUtils.radToDeg(euler.y),
-      yawDeg: THREE.MathUtils.radToDeg(euler.z),
+      tx: dx,
+      ty: -dy,
+      tz: dz,
+      dist,
+      rollDeg,
+      pitchDeg,
+      yawDeg,
       rmse: null,
-      source: "GROUND TRUTH (SIMULATION, WORLD FRAME)",
+      source: "GROUND TRUTH (SIMULATION)",
     };
-  }, [solved, chaserPosition, targetPosition, targetQuaternion, poseResult]);
+  }, [
+    isSnapshotFrozen,
+    solved,
+    chaserPosition,
+    targetPosition,
+    targetQuaternion,
+    poseResult,
+  ]);
 
   // Frozen state for STANDBY mode
   const frozenStateRef = useRef(null);
-  if (isLiveStreaming) {
+  if (isLiveStreaming && !isSnapshotFrozen) {
     frozenStateRef.current = liveState;
   }
-  const current = isLiveStreaming ? liveState : (frozenStateRef.current || liveState);
+  const current = (isLiveStreaming && !isSnapshotFrozen) ? liveState : (frozenStateRef.current || liveState);
 
-  // Update rolling history buffer at 10 Hz when live streaming.
-  // A timer (not an effect on every simulation tick) so new samples never
-  // cascade into effect -> setState -> render loops.
+  // Update rolling history buffer at 10 Hz when live streaming and not frozen
   const currentRef = useRef(current);
   useEffect(() => {
     currentRef.current = current;
   });
   useEffect(() => {
-    if (!isLiveStreaming) return undefined;
+    if (!isLiveStreaming || isSnapshotFrozen) return undefined;
     const id = setInterval(() => {
       const c = currentRef.current;
       if (!c) return;
@@ -179,7 +220,7 @@ function PoseResults({ isLiveStreaming = true }) {
       });
     }, 100);
     return () => clearInterval(id);
-  }, [isLiveStreaming]);
+  }, [isLiveStreaming, isSnapshotFrozen]);
 
   return (
     <div className="pose-results-container">

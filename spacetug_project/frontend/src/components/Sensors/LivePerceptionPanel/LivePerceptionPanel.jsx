@@ -5,7 +5,7 @@ import "./LivePerceptionPanel.css";
 const f = (v, d = 2, unit = "") =>
   v === null || v === undefined || !Number.isFinite(Number(v)) ? "--" : `${Number(v).toFixed(d)}${unit}`;
 
-const RISK_COLORS = { LOW: "#22c55e", MEDIUM: "#f59e0b", HIGH: "#ef4444" };
+const RISK_COLORS = { LOW: "#22c55e", "DOCKING CORRIDOR": "#38bdf8", MEDIUM: "#f59e0b", HIGH: "#ef4444" };
 
 /** Controls + live readout of tracking, pose, motion and collision (Sensors page). */
 function LivePerceptionPanel() {

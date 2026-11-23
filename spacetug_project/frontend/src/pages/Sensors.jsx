@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import Layout from "../components/Layout/Layout";
 
@@ -14,24 +14,30 @@ import { getSensorData } from "../services/api.js";
 function Sensors() {
 
   const [sensorData, setSensorData] = useState(null);
-  const [backendStatus, setBackendStatus] = useState("CONNECTING"); // CONNECTING, ONLINE, OFFLINE, DEGRADED
+  const [backendStatus, setBackendStatus] = useState("ONLINE"); // Stable status with hysteresis: ONLINE, OFFLINE, DEGRADED
   const [errorMessage, setErrorMessage] = useState(null);
   const [lastCheck, setLastCheck] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const failCountRef = useRef(0);
 
   const loadSensorData = async () => {
     setIsRetrying(true);
-    setErrorMessage(null);
     try {
       const data = await getSensorData();
+      failCountRef.current = 0;
       setSensorData(data);
       setBackendStatus("ONLINE");
+      setErrorMessage(null);
       setLastCheck(new Date());
     } catch (error) {
-      console.warn("Sensor API Error:", error);
-      setSensorData(null);
-      setBackendStatus("OFFLINE");
-      setErrorMessage(error.message || "Failed to connect to backend sensor service");
+      failCountRef.current += 1;
+      // Require 2 consecutive failures before switching badge to OFFLINE to eliminate rapid flicker
+      if (failCountRef.current >= 2) {
+        console.warn("Sensor API Error (persistent):", error);
+        setSensorData(null);
+        setBackendStatus("OFFLINE");
+        setErrorMessage(error.message || "Failed to connect to backend sensor service");
+      }
       setLastCheck(new Date());
     } finally {
       setIsRetrying(false);

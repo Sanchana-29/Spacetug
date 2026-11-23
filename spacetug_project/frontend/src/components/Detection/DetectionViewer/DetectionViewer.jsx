@@ -37,9 +37,10 @@ function DetectionViewer() {
   const liveGlRef = useRef(null);
   const lastLiveInferenceTimeRef = useRef(0);
   const liveInferenceBusyRef = useRef(false);
-  const [liveTelemetry, setLiveTelemetry] = useState({ fps: 28, latencyMs: 38, confScore: 96.8 });
-  const frameCountRef = useRef(0);
-  const lastFpsCalcTimeRef = useRef(performance.now());
+  const [liveTelemetry, setLiveTelemetry] = useState({ fps: 2.4, latencyMs: 380, confScore: 96.8 });
+  const liveInferenceCountRef = useRef(0);
+  const lastInferenceFpsCalcTimeRef = useRef(performance.now());
+  const lastActiveFrameDimsRef = useRef({ w: 1280, h: 720 });
 
   const onLiveGlReady = useCallback((context) => {
     liveGlRef.current = context;
@@ -48,19 +49,16 @@ function DetectionViewer() {
   const handleLiveFrameRendered = useCallback(({ gl, frame }) => {
     if (detectionMode !== "Live Stream") return;
 
-    // Track real frame rendering FPS
-    frameCountRef.current++;
-    const now = performance.now();
-    if (now - lastFpsCalcTimeRef.current >= 1000) {
-      const measuredFps = Math.round((frameCountRef.current * 1000) / (now - lastFpsCalcTimeRef.current));
-      frameCountRef.current = 0;
-      lastFpsCalcTimeRef.current = now;
-      const validFps = Math.max(15, Math.min(60, measuredFps));
-      setLiveTelemetry((prev) => ({ ...prev, fps: validFps }));
-      setLiveInferenceData?.((prev) => ({ ...prev, fps: validFps }));
+    if (gl?.domElement) {
+      const cw = gl.domElement.width || 1280;
+      const ch = gl.domElement.height || 720;
+      if (cw > 0 && ch > 0) {
+        lastActiveFrameDimsRef.current = { w: cw, h: ch };
+      }
     }
 
     if (frame < 10) return;
+    const now = performance.now();
     // Run live YOLOv8 inference approximately every 400ms (~2.5 FPS) for responsive real-time track updates
     if (now - lastLiveInferenceTimeRef.current < 400 || liveInferenceBusyRef.current) return;
     lastLiveInferenceTimeRef.current = now;
@@ -69,6 +67,10 @@ function DetectionViewer() {
     try {
       const startInference = performance.now();
       const dataUrl = gl.domElement.toDataURL("image/png");
+      const capturedW = gl.domElement.width || 1280;
+      const capturedH = gl.domElement.height || 720;
+      lastActiveFrameDimsRef.current = { w: capturedW, h: capturedH };
+
       if (dataUrl && dataUrl.length > 500) {
         const liveFramePayload = {
           id: `LIVE-${Date.now()}`,
@@ -77,14 +79,28 @@ function DetectionViewer() {
           sensorType: selectedSensor || "RGB-D Camera",
           timestamp: new Date().toISOString(),
           formattedTime: new Date().toLocaleTimeString(),
+          image_width: capturedW,
+          image_height: capturedH,
         };
         runDetection(confidenceThreshold, liveFramePayload).then((res) => {
           const lat = Math.round(performance.now() - startInference);
           const topConf = res?.detections?.[0]?.confidence
             ? (res.detections[0].confidence * 100).toFixed(1)
             : (96.5 + Math.random() * 2).toFixed(1);
+
+          // Track genuine measured perception inference FPS rate
+          liveInferenceCountRef.current++;
+          const calcElapsed = performance.now() - lastInferenceFpsCalcTimeRef.current;
+          let measuredInferenceFps = liveTelemetry.fps;
+          if (calcElapsed >= 2000) {
+            measuredInferenceFps = Number(((liveInferenceCountRef.current * 1000) / calcElapsed).toFixed(1));
+            liveInferenceCountRef.current = 0;
+            lastInferenceFpsCalcTimeRef.current = performance.now();
+          }
+
           setLiveTelemetry((prev) => ({
             ...prev,
+            fps: measuredInferenceFps,
             latencyMs: lat,
             confScore: Number(topConf),
           }));
@@ -107,6 +123,7 @@ function DetectionViewer() {
           };
           setLiveInferenceData?.((prev) => ({
             ...prev,
+            fps: measuredInferenceFps,
             latencyMs: lat,
             confScore: Number(topConf),
             primaryDetection: primaryDet,
@@ -122,7 +139,7 @@ function DetectionViewer() {
     } catch {
       liveInferenceBusyRef.current = false;
     }
-  }, [detectionMode, selectedSensor, confidenceThreshold, runDetection, setLiveInferenceData]);
+  }, [detectionMode, selectedSensor, confidenceThreshold, runDetection, setLiveInferenceData, liveTelemetry.fps, addMissionEvent]);
 
   const handleImageLoad = (e) => {
     const w = e.target.naturalWidth || 1280;
@@ -171,10 +188,10 @@ function DetectionViewer() {
 
   // Dynamic Metadata: dynamically updates based on active frame/stream
   const displayW = detectionMode === "Live Stream"
-    ? 1280
+    ? (detectionResult?.image_width || lastActiveFrameDimsRef.current?.w || 1280)
     : (detectionResult?.image_width || naturalDims.w || 1280);
   const displayH = detectionMode === "Live Stream"
-    ? 720
+    ? (detectionResult?.image_height || lastActiveFrameDimsRef.current?.h || 720)
     : (detectionResult?.image_height || naturalDims.h || 720);
 
   const displaySource = detectionMode === "Live Stream"
